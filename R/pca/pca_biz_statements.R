@@ -38,11 +38,11 @@ var_table()
 # pattern matrix
 pattern_matrix()
 
-
+d %>% select(contains("biz"))
 
 # save component scores as dataframe
 # pca_scores <- data.frame(fit$scores) %>%
-#   rename( = RC1,  = RC2)
+#   rename( = RC1)
 # 
 # # add component scores to d
 # d <- d %>% bind_cols(pca_scores)

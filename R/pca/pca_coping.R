@@ -1,13 +1,8 @@
 # select variables
-x <- d %>% select(cope_distraction, cope_active, cope_denial, cope_substance, cope_emotsupp, 
-                  cope_instrsupp, cope_disengage, cope_venting, cope_reframing, cope_planning, 
-                  cope_humor, cope_acceptance, cope_religion, cope_selfblame)
-
-# create the correlation matrix for PCA so we know how it was done (e.g., how missing values were treated)
-cor_pca <- star_matrix(x)
+x <- d %>% select(coping_1:coping_28)
 
 # print correlations
-cor_pca
+star_matrix(x)
 
 # Visualise correlations to see if variables appear to cluster
 # corrplot(cor(x, use="complete.obs"), order = "hclust", tl.col='black', tl.cex=.75)
@@ -26,7 +21,7 @@ print(data.frame(cortest.bartlett(cor(x, use="complete.obs"), n = 1295)))
 scree(x)
 
 # 4-component PCA
-n_comp <- 4
+n_comp <- 8
 
 fit <- principal(x, rotate = rotate_method, nfactors = n_comp,
                  method = score_method, scores = TRUE, n.obs = 1295)
@@ -36,6 +31,11 @@ var_table()
 
 # pattern matrix
 pattern_matrix()
+
+cope_distraction, cope_active, cope_denial, cope_substance, 
+cope_emotsupp, cope_instrsupp, cope_disengage, cope_venting, 
+cope_reframing, cope_planning, cope_humor, cope_acceptance, 
+cope_religion, cope_selfblame
 
 # Component correlations matrix
 # rownames(fit$r.scores) <- c("official_sources", "casual_sources")

@@ -1,11 +1,8 @@
 # select variables
 x <- d %>% select(follow_self, follow_family, follow_atrisk, follow_people)
 
-# create the correlation matrix for PCA so we know how it was done (e.g., how missing values were treated)
-cor_pca <- star_matrix(x)
-
 # print correlations
-cor_pca
+star_matrix(x)
 
 # Visualise correlations to see if variables appear to cluster
 # corrplot(cor(x, use="complete.obs"), order = "hclust", tl.col='black', tl.cex=.75)
@@ -37,14 +34,12 @@ var_table()
 # pattern matrix
 pattern_matrix()
 
-
-
 # save component scores as dataframe
-# pca_scores <- data.frame(fit$scores) %>%
-#   rename( = RC1,  = RC2)
-# 
-# # add component scores to d
-# d <- d %>% bind_cols(pca_scores)
-# 
-# # clean environment
-# rm(list = setdiff(ls(), c("d")))
+pca_scores <- data.frame(fit$scores) %>%
+  rename(complaince_selfreport = PC1)
+
+# add component scores to d
+d <- d %>% bind_cols(pca_scores)
+
+# clean environment
+rm(list = setdiff(ls(), c("d")))

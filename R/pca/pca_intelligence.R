@@ -38,14 +38,12 @@ var_table()
 # pattern matrix
 pattern_matrix()
 
-
-
 # save component scores as dataframe
-# pca_scores <- data.frame(fit$scores) %>%
-#   rename( = RC1,  = RC2)
-# 
-# # add component scores to d
-# d <- d %>% bind_cols(pca_scores)
-# 
-# # clean environment
-# rm(list = setdiff(ls(), c("d")))
+pca_scores <- data.frame(fit$scores) %>%
+  rename(g_md = RC1)
+
+# add component scores to d
+d <- d %>% bind_cols(pca_scores)
+
+# clean environment
+rm(list = setdiff(ls(), c("d")))

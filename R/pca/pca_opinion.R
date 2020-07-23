@@ -2,11 +2,8 @@
 x <- d %>% select(opinion_1, opinion_2, opinion_3, opinion_4, opinion_5, opinion_6, 
                   opinion_7, opinion_8, opinion_9, opinion_10)
 
-# create the correlation matrix for PCA so we know how it was done (e.g., how missing values were treated)
-cor_pca <- star_matrix(x)
-
 # print correlations
-cor_pca
+star_matrix(x)
 
 # Visualise correlations to see if variables appear to cluster
 # corrplot(cor(x, use="complete.obs"), order = "hclust", tl.col='black', tl.cex=.75)
@@ -40,17 +37,17 @@ pattern_matrix()
 
 
 # Component correlations matrix
-# rownames(fit$r.scores) <- c("official_sources", "casual_sources")
-# colnames(fit$r.scores) <- c("official_sources", "casual_sources")
+rownames(fit$r.scores) <- c("scrict_isolation", "social_distancing", "herd_immunity_economy")
+colnames(fit$r.scores) <- c("scrict_isolation", "social_distancing", "herd_immunity_economy")
 
 round(fit$r.scores,2)
 
 # save component scores as dataframe
-# pca_scores <- data.frame(fit$scores) %>%
-#   rename( = RC1,  = RC2)
-# 
-# # add component scores to d
-# d <- d %>% bind_cols(pca_scores)
-# 
-# # clean environment
-# rm(list = setdiff(ls(), c("d")))
+pca_scores <- data.frame(fit$scores) %>%
+  rename(scrict_isolation = RC1, social_distancing = RC2, herd_immunity_economy = RC3)
+
+# add component scores to d
+d <- d %>% bind_cols(pca_scores)
+
+# clean environment
+rm(list = setdiff(ls(), c("d")))
