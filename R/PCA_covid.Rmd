@@ -1,0 +1,1131 @@
+---
+title: "Series of PCA for Covid-19 study"
+author: "Matt Blanchard"
+csl: apa-5th-edition.csl
+output: 
+  pdf_document: 
+    keep_tex: yes
+    number_sections: TRUE
+header-includes:
+    - \usepackage{caption}
+    - \captionsetup{labelsep = newline}
+    - \captionsetup{justification = centering, singlelinecheck = false}
+    - \usepackage{pdflscape}
+    - \newcommand{\blandscape}{\begin{landscape}}
+    - \newcommand{\elandscape}{\end{landscape}}
+
+---
+
+```{R echo = FALSE, results = "hide", message = FALSE}
+
+options(scipen = 1, digits = 2)
+
+# load packages
+packages <- c("tidyverse", "psych", "knitr", "kableExtra", "GGally", "naniar", "tidyLPA", "here")
+purrr::map(packages, library, character.only = TRUE)
+
+# # Source Functions
+# source(here("R/pca_functions.R"))
+# source(here("R/corstarsfunction.R")) # APA style correlations
+# source(here("R/CalcFunctions_ML.R")) # Self-created analyses functions
+
+# load data
+source(here("R/data_prep.R"))
+
+
+```
+
+```{R echo = FALSE, message = FALSE}
+# Source Functions
+source(here("R/corstarsfunction.R")) # APA style correlations
+source(here("R/CalcFunctions_ML.R")) # Self-created analyses functions
+source(here("R/pca_functions.R"))
+
+```
+
+# Summary
+I reran all EFAs using the reduced sample (N=1361). The factor structures were the same, however, there were some minor differences in the item loadings.  
+1. PCA on Coping, adaptability, resilience, personality, and others.  
+Same 6 factors with minor differences in item loadings  
+- PC2 distraction (+) and acceptance (+) also load  
+- PC3 acceptance (+) also loads  
+- PC4 coping_denial (+) also loads  
+- PC5 emotionsupp (+) also loads  
+- PC6 cope_religion (-) loads instead of cope_reframing (+)  
+2. PCA on coping  
+- PC4 distraction (+) also loads  
+3. Reason  
+- PC1 item 2 (-) also loads  
+- PC3 item 1 (+) also loads  
+
+Also, there were a few minor differences and potential issues:  
+4. For the coping variables, I had to use PCA not FA using PAF (poor fit).  
+5. For the opinion variables, should items 5, 6, or 10 be reverse coded? When I calculate Cronbach's Alpha it says these items are negatively correlated with the total scale.  
+
+\newpage
+# Coping, adaptability, reslience, and personality
+
+## Correlations between variables
+```{R echo = FALSE, message = FALSE}
+# select variables
+x <- d %>% select(cope_distraction, cope_active, cope_denial, cope_substance, 
+                  cope_emotsupp, cope_instrsupp, cope_disengage, cope_venting, 
+                  cope_reframing, cope_planning, cope_humor, cope_acceptance, 
+                  cope_religion, cope_selfblame, 
+                  extraversion, agreeableness, conscientious, neuroticism, intellect, 
+                  resilience, adaptability_crisis, adaptability_uncertainty,
+                  conservatism, reactance, gov_trust, cultural_tightloose, 
+                  RWA, PoliticalOrient)
+
+# print correlations
+corstarsl(x) %>%
+  kable(booktabs = T, caption = "Correlations between variables") %>%
+  kable_styling(font_size = 6, latex_options = "scale_down")
+
+```
+
+## KMO and Bartlett's test of spherecity
+```{R echo = FALSE, message = FALSE}
+# Kaiser-Meyer-Olkin Measure of Sampling Adequacy (KMO)
+kmo <- data.frame(KMO = round(KMO(cor(x, use="complete.obs"))$MSA,2))
+
+kmo %>% 
+  kable(booktabs = T, caption = "KMO: Measure of sampling adequacy") %>%
+  kable_styling(font_size = 6, latex_options = "HOLD_position")
+
+
+# Bartlett's test of spherecity
+data.frame(cortest.bartlett(cor(x, use="complete.obs"), n = 1265)) %>% 
+kable(booktabs = T, caption = "Bartletts test of spherecity") %>%
+  kable_styling(font_size = 6, latex_options = "HOLD_position")
+
+```
+
+
+## Scree plot
+```{R echo = FALSE, message = FALSE}
+# scree plot
+scree(x)
+
+```
+
+The scree plot suggests a 6 or 7 component solution. SK extracted 6 components from the full dataset so I will do the same.
+
+## PCA: 6 components
+```{R echo = FALSE, message = FALSE}
+# 6-component PCA
+n_comp <- 6
+rotate_method <- "promax"
+score_method <- "Bartlett"
+
+fit <- principal(x, rotate = rotate_method, nfactors = n_comp,
+                 method = score_method, scores = TRUE, n.obs = 1265)
+
+# variance explained
+var_table()
+
+# pattern matrix
+pattern_matrix()
+
+# Component correlations matrix
+if (n_comp > 1) {
+  pca_cor()
+}
+
+```
+
+\newpage
+# Biz statements
+
+## Correlations between variables
+```{R echo = FALSE, message = FALSE}
+# select variables
+x <- d %>% select(WFH_Biz_Statements_1, WFH_Biz_Statements_2,  WFH_Biz_Statements_3, 
+                  WFH_Biz_Statements_4)
+
+# print correlations
+corstarsl(x) %>%
+  kable(booktabs = T, caption = "Correlations between variables") %>%
+  kable_styling(font_size = 6, latex_options = "HOLD_position")
+
+```
+
+## Reliability
+```{R echo = FALSE, message = FALSE}
+# reliability
+data.frame(a = psych::alpha(x)$total$raw_alpha %>% round(2)) %>%
+  kable(booktabs = T, caption = "Cronbach's Alpha") %>%
+  kable_styling(font_size = 6, latex_options = "HOLD_position")
+
+```
+
+## KMO and Bartlett's test of spherecity
+```{R echo = FALSE, message = FALSE}
+# Kaiser-Meyer-Olkin Measure of Sampling Adequacy (KMO)
+kmo <- data.frame(KMO = round(KMO(cor(x, use="complete.obs"))$MSA,2))
+
+kmo %>% 
+  kable(booktabs = T, caption = "KMO: Measure of sampling adequacy") %>%
+  kable_styling(font_size = 6, latex_options = "HOLD_position")
+
+
+# Bartlett's test of spherecity
+data.frame(cortest.bartlett(cor(x, use="complete.obs"), n = 84)) %>% 
+kable(booktabs = T, caption = "Bartletts test of spherecity") %>%
+  kable_styling(font_size = 6, latex_options = "HOLD_position")
+
+```
+
+
+## Scree plot
+```{R echo = FALSE, message = FALSE}
+# scree plot
+scree(x)
+
+```
+
+The scree plot suggests a 1 component solution. This is consistent with the components extracted by SK from the full dataset.
+
+## PCA: 1 component
+```{R echo = FALSE, message = FALSE}
+# 1-component PCA
+n_comp <- 1
+rotate_method <- "promax"
+score_method <- "Bartlett"
+
+fit <- principal(x, rotate = rotate_method, nfactors = n_comp,
+                 method = score_method, scores = TRUE, n.obs = 84)
+
+# variance explained
+var_table()
+
+# pattern matrix
+pattern_matrix()
+
+# Component correlations matrix
+if (n_comp > 1) {
+  pca_cor()
+}
+
+```
+
+\newpage
+# Compliance
+
+## Correlations between variables
+```{R echo = FALSE, message = FALSE}
+# select variables
+x <- d %>% select(BehaviourComply_1_1, BehaviourComply_1_2, BehaviourComply_1_3, 
+                  BehaviourComply_1_4, BehaviourComply_1_5, BehaviourComply_1_6,
+                  BehaviourComply_2_1, BehaviourComply_2_2, BehaviourComply_2_3, 
+                  BehaviourComply_2_4, BehaviourComply_2_5, BehaviourComply_2_6)
+
+# print correlations
+corstarsl(x) %>%
+  kable(booktabs = T, caption = "Correlations between variables") %>%
+  kable_styling(font_size = 6, latex_options = "HOLD_position")
+
+```
+
+## Reliability
+```{R echo = FALSE, message = FALSE}
+# reliability
+data.frame(a = psych::alpha(x)$total$raw_alpha %>% round(2)) %>%
+  kable(booktabs = T, caption = "Cronbach's Alpha") %>%
+  kable_styling(font_size = 6, latex_options = "HOLD_position")
+
+```
+
+
+## KMO and Bartlett's test of spherecity
+```{R echo = FALSE, message = FALSE}
+# Kaiser-Meyer-Olkin Measure of Sampling Adequacy (KMO)
+kmo <- data.frame(KMO = round(KMO(cor(x, use="complete.obs"))$MSA,2))
+
+kmo %>% 
+  kable(booktabs = T, caption = "KMO: Measure of sampling adequacy") %>%
+  kable_styling(font_size = 6, latex_options = "HOLD_position")
+
+
+# Bartlett's test of spherecity
+data.frame(cortest.bartlett(cor(x, use="complete.obs"), n = 1344)) %>% 
+kable(booktabs = T, caption = "Bartletts test of spherecity") %>%
+  kable_styling(font_size = 6, latex_options = "HOLD_position")
+
+```
+
+
+## Scree plot
+```{R echo = FALSE, message = FALSE}
+# scree plot
+scree(x)
+
+```
+
+The scree plot suggests a 3 component solution. This is consistent with the components extracted by SK from the full dataset.
+
+## PCA: 3 component
+```{R echo = FALSE, message = FALSE}
+# 3-component PCA
+n_comp <- 3
+rotate_method <- "promax"
+score_method <- "Bartlett"
+
+fit <- principal(x, rotate = rotate_method, nfactors = n_comp,
+                 method = score_method, scores = TRUE, n.obs = 1344)
+
+# variance explained
+var_table()
+
+# pattern matrix
+pattern_matrix()
+
+# Component correlations matrix
+if (n_comp > 1) {
+  pca_cor()
+}
+
+```
+
+
+\newpage
+# Coping
+
+## Correlations between variables
+```{R echo = FALSE, message = FALSE}
+# select variables
+x <- d %>% select(cope_distraction, cope_active, cope_denial, cope_substance, cope_emotsupp, 
+                  cope_instrsupp, cope_disengage, cope_venting, cope_reframing, cope_planning, 
+                  cope_humor, cope_acceptance, cope_religion, cope_selfblame)
+
+# print correlations
+corstarsl(x) %>%
+  kable(booktabs = T, caption = "Correlations between variables") %>%
+  kable_styling(font_size = 6, latex_options = "HOLD_position")
+
+```
+
+## Reliability
+```{R echo = FALSE, message = FALSE}
+# reliability
+data.frame(a = psych::alpha(x)$total$raw_alpha %>% round(2)) %>%
+  kable(booktabs = T, caption = "Cronbach's Alpha") %>%
+  kable_styling(font_size = 6, latex_options = "HOLD_position")
+
+```
+
+
+## KMO and Bartlett's test of spherecity
+```{R echo = FALSE, message = FALSE}
+# Kaiser-Meyer-Olkin Measure of Sampling Adequacy (KMO)
+kmo <- data.frame(KMO = round(KMO(cor(x, use="complete.obs"))$MSA,2))
+
+kmo %>% 
+  kable(booktabs = T, caption = "KMO: Measure of sampling adequacy") %>%
+  kable_styling(font_size = 6, latex_options = "HOLD_position")
+
+
+# Bartlett's test of spherecity
+data.frame(cortest.bartlett(cor(x, use="complete.obs"), n = 1295)) %>% 
+kable(booktabs = T, caption = "Bartletts test of spherecity") %>%
+  kable_styling(font_size = 6, latex_options = "HOLD_position")
+
+```
+
+
+## Scree plot
+```{R echo = FALSE, message = FALSE}
+# scree plot
+scree(x)
+
+```
+
+The scree plot suggests either a 2 factor (FA) solution or a 4 component (PCA) solution. SK extracted 4 factors using PAF from the full dataset. I will conduct a 4 component PCA.
+
+## PCA: 4 components
+```{R echo = FALSE, message = FALSE}
+# 4-component PCA
+n_comp <- 4
+
+fit <- principal(x, rotate = rotate_method, nfactors = n_comp,
+                 method = score_method, scores = TRUE, n.obs = 1295)
+
+# variance explained
+var_table()
+
+# pattern matrix
+pattern_matrix()
+
+# Component correlations matrix
+if (n_comp > 1) {
+  pca_cor()
+}
+
+```
+
+\newpage
+# DASS
+
+## Correlations between variables
+```{R echo = FALSE, message = FALSE}
+# select variables
+x <- d %>% select(DASS_stress, DASS_anxiety, DASS_depression)
+
+# print correlations
+corstarsl(x) %>%
+  kable(booktabs = T, caption = "Correlations between variables") %>%
+  kable_styling(font_size = 6, latex_options = "HOLD_position")
+
+```
+
+## Reliability
+```{R echo = FALSE, message = FALSE}
+# reliability
+data.frame(a = psych::alpha(x)$total$raw_alpha %>% round(2)) %>%
+  kable(booktabs = T, caption = "Cronbach's Alpha") %>%
+  kable_styling(font_size = 6, latex_options = "HOLD_position")
+
+```
+
+
+## KMO and Bartlett's test of spherecity
+```{R echo = FALSE, message = FALSE}
+# Kaiser-Meyer-Olkin Measure of Sampling Adequacy (KMO)
+kmo <- data.frame(KMO = round(KMO(cor(x, use="complete.obs"))$MSA,2))
+
+kmo %>% 
+  kable(booktabs = T, caption = "KMO: Measure of sampling adequacy") %>%
+  kable_styling(font_size = 6, latex_options = "HOLD_position")
+
+
+# Bartlett's test of spherecity
+data.frame(cortest.bartlett(cor(x, use="complete.obs"), n = 165)) %>% 
+kable(booktabs = T, caption = "Bartletts test of spherecity") %>%
+  kable_styling(font_size = 6, latex_options = "HOLD_position")
+
+```
+
+
+## Scree plot
+```{R echo = FALSE, message = FALSE}
+# scree plot
+scree(x)
+
+```
+
+## PCA
+The scree plot suggests a 1 component solution. This is consistent with the components extracted by SK from the full dataset.
+
+## PCA: 1 component
+```{R echo = FALSE, message = FALSE}
+# 1-component PCA
+n_comp <- 1
+rotate_method <- "promax"
+score_method <- "Bartlett"
+
+fit <- principal(x, rotate = rotate_method, nfactors = n_comp,
+                 method = score_method, scores = TRUE, n.obs = 165)
+
+# variance explained
+var_table()
+
+# pattern matrix
+pattern_matrix()
+
+# Component correlations matrix
+if (n_comp > 1) {
+  pca_cor()
+}
+
+```
+
+\newpage
+# Follow
+
+## Correlations between variables
+```{R echo = FALSE, message = FALSE}
+# select variables
+x <- d %>% select(follow_self, follow_family, follow_atrisk, follow_people)
+
+# print correlations
+corstarsl(x) %>%
+  kable(booktabs = T, caption = "Correlations between variables") %>%
+  kable_styling(font_size = 6, latex_options = "HOLD_position")
+
+```
+
+## Reliability
+```{R echo = FALSE, message = FALSE}
+# reliability
+data.frame(a = psych::alpha(x)$total$raw_alpha %>% round(2)) %>%
+  kable(booktabs = T, caption = "Cronbach's Alpha") %>%
+  kable_styling(font_size = 6, latex_options = "HOLD_position")
+
+```
+
+
+## KMO and Bartlett's test of spherecity
+```{R echo = FALSE, message = FALSE}
+# Kaiser-Meyer-Olkin Measure of Sampling Adequacy (KMO)
+kmo <- data.frame(KMO = round(KMO(cor(x, use="complete.obs"))$MSA,2))
+
+kmo %>% 
+  kable(booktabs = T, caption = "KMO: Measure of sampling adequacy") %>%
+  kable_styling(font_size = 6, latex_options = "HOLD_position")
+
+
+# Bartlett's test of spherecity
+data.frame(cortest.bartlett(cor(x, use="complete.obs"), n = 1326)) %>% 
+  kable(booktabs = T, caption = "Bartletts test of spherecity") %>%
+  kable_styling(font_size = 6, latex_options = "HOLD_position")
+
+```
+
+
+## Scree plot
+```{R echo = FALSE, message = FALSE}
+# scree plot
+scree(x)
+
+```
+
+## PCA
+The scree plot suggests a 1 component solution. This is consistent with the components extracted by SK from the full dataset.
+
+## PCA: 1 component
+```{R echo = FALSE, message = FALSE}
+# 1-component PCA
+n_comp <- 1
+rotate_method <- "promax"
+score_method <- "Bartlett"
+
+fit <- principal(x, rotate = rotate_method, nfactors = n_comp,
+                 method = score_method, scores = TRUE, n.obs = 1326)
+
+
+# variance explained
+var_table()
+
+# pattern matrix
+pattern_matrix()
+
+# Component correlations matrix
+if (n_comp > 1) {
+  pca_cor()
+}
+
+```
+
+\newpage
+# Government
+
+## Correlations between variables
+```{R echo = FALSE, message = FALSE}
+# select variables
+x <- d %>% select(Govt_Satisfaction, Govt_Extreme, Govt_Truth)
+
+# print correlations
+corstarsl(x) %>%
+  kable(booktabs = T, caption = "Correlations between variables") %>%
+  kable_styling(font_size = 6, latex_options = "HOLD_position")
+
+```
+
+## Reliability
+```{R echo = FALSE, message = FALSE}
+# reliability
+data.frame(a = psych::alpha(d %>% select(Govt_Satisfaction, Govt_Extreme_r, Govt_Truth))$total$raw_alpha %>% round(2)) %>%
+  kable(booktabs = T, caption = "Cronbach's Alpha") %>%
+  kable_styling(font_size = 6, latex_options = "HOLD_position")
+
+```
+
+
+## KMO and Bartlett's test of spherecity
+```{R echo = FALSE, message = FALSE}
+# Kaiser-Meyer-Olkin Measure of Sampling Adequacy (KMO)
+kmo <- data.frame(KMO = round(KMO(cor(x, use="complete.obs"))$MSA,2))
+
+kmo %>% 
+  kable(booktabs = T, caption = "KMO: Measure of sampling adequacy") %>%
+  kable_styling(font_size = 6, latex_options = "HOLD_position")
+
+
+# Bartlett's test of spherecity
+data.frame(cortest.bartlett(cor(x, use="complete.obs"), n = 1322)) %>% 
+  kable(booktabs = T, caption = "Bartletts test of spherecity") %>%
+  kable_styling(font_size = 6, latex_options = "HOLD_position")
+
+```
+
+
+## Scree plot
+An ultra-Heywood case was detected for FA so I only plotted eigen values using PCA here. This issue did not occur for PCA.
+
+```{R echo = FALSE, message = FALSE}
+# scree plot
+scree(x, factors=FALSE)
+
+```
+
+The scree plot suggests a 1 component solution. This is consistent with the components extracted by SK from the full dataset.
+
+## PCA: 1 component
+```{R echo = FALSE, message = FALSE}
+# 1-component PCA
+n_comp <- 1
+rotate_method <- "promax"
+score_method <- "Bartlett"
+
+fit <- principal(x, rotate = rotate_method, nfactors = n_comp,
+                 method = score_method, scores = TRUE, n.obs = 1322)
+
+# variance explained
+var_table()
+
+# pattern matrix
+pattern_matrix()
+
+# Component correlations matrix
+if (n_comp > 1) {
+  pca_cor()
+}
+
+```
+
+\newpage
+# Intelligence
+
+## Correlations between variables
+```{R echo = FALSE, message = FALSE}
+# select variables
+x <- d %>% select(CRT_acc,  belief_acc,  EAT_acc)
+
+# print correlations
+corstarsl(x) %>%
+  kable(booktabs = T, caption = "Correlations between variables") %>%
+  kable_styling(font_size = 6, latex_options = "HOLD_position")
+
+```
+
+## Reliability
+```{R echo = FALSE, message = FALSE}
+# reliability
+data.frame(a = psych::alpha(x)$total$raw_alpha %>% round(2)) %>%
+  kable(booktabs = T, caption = "Cronbach's Alpha") %>%
+  kable_styling(font_size = 6, latex_options = "HOLD_position")
+
+```
+
+
+## KMO and Bartlett's test of spherecity
+```{R echo = FALSE, message = FALSE}
+# Kaiser-Meyer-Olkin Measure of Sampling Adequacy (KMO)
+kmo <- data.frame(KMO = round(KMO(cor(x, use="complete.obs"))$MSA,2))
+
+kmo %>% 
+  kable(booktabs = T, caption = "KMO: Measure of sampling adequacy") %>%
+  kable_styling(font_size = 6, latex_options = "HOLD_position")
+
+
+# Bartlett's test of spherecity
+data.frame(cortest.bartlett(cor(x, use="complete.obs"), n = 462)) %>% 
+  kable(booktabs = T, caption = "Bartletts test of spherecity") %>%
+  kable_styling(font_size = 6, latex_options = "HOLD_position")
+
+```
+
+
+## Scree plot
+```{R echo = FALSE, message = FALSE}
+# scree plot
+scree(x)
+
+```
+
+## PCA
+The scree plot suggests a 1 component solution. This is consistent with the components extracted by SK from the full dataset.
+
+## PCA: 1 component
+```{R echo = FALSE, message = FALSE}
+# 1-component PCA
+n_comp <- 1
+rotate_method <- "promax"
+score_method <- "Bartlett"
+
+fit <- principal(x, rotate = rotate_method, nfactors = n_comp,
+                 method = score_method, scores = TRUE, n.obs = 462)
+
+
+# variance explained
+var_table()
+
+# pattern matrix
+pattern_matrix()
+
+# Component correlations matrix
+if (n_comp > 1) {
+  pca_cor()
+}
+
+```
+
+\newpage
+# News sources
+
+## Correlations between variables
+```{R echo = FALSE, message = FALSE}
+# select variables
+x <- d %>% select(NewsSources_1:NewsSources_7) %>% 
+        rename(NS_FriendsFam = NewsSources_1, NS_OffGovt = NewsSources_2,
+               NS_OffHealth = NewsSources_3, NS_Science = NewsSources_4,
+               NS_WordMouth = NewsSources_5, NS_News = NewsSources_6,
+               NS_SocialMedia = NewsSources_7)
+
+# print correlations
+corstarsl(x) %>%
+  kable(booktabs = T, caption = "Correlations between variables") %>%
+  kable_styling(font_size = 6, latex_options = "HOLD_position")
+
+```
+
+## Reliability
+```{R echo = FALSE, message = FALSE}
+# reliability
+data.frame(a = psych::alpha(x)$total$raw_alpha %>% round(2)) %>%
+  kable(booktabs = T, caption = "Cronbach's Alpha") %>%
+  kable_styling(font_size = 6, latex_options = "HOLD_position")
+
+```
+
+
+## KMO and Bartlett's test of spherecity
+```{R echo = FALSE, message = FALSE}
+# Kaiser-Meyer-Olkin Measure of Sampling Adequacy (KMO)
+kmo <- data.frame(KMO = round(KMO(cor(x, use="complete.obs"))$MSA,2))
+
+kmo %>% 
+  kable(booktabs = T, caption = "KMO: Measure of sampling adequacy") %>%
+  kable_styling(font_size = 6, latex_options = "HOLD_position")
+
+
+# Bartlett's test of spherecity
+data.frame(cortest.bartlett(cor(x, use="complete.obs"), n = 1361)) %>% 
+  kable(booktabs = T, caption = "Bartletts test of spherecity") %>%
+  kable_styling(font_size = 6, latex_options = "HOLD_position")
+
+```
+
+
+## Scree plot
+```{R echo = FALSE, message = FALSE}
+# scree plot
+scree(x)
+
+```
+
+The scree plot suggests a 2 component solution. This is consistent with the components extracted by SK from the full dataset.
+
+## PCA: 2 component
+```{R echo = FALSE, message = FALSE}
+# 2-component PCA
+n_comp <- 2
+rotate_method <- "promax"
+score_method <- "Bartlett"
+
+fit <- principal(x, rotate = rotate_method, nfactors = n_comp, 
+                 method = score_method, scores = TRUE, n.obs = 1361)
+
+# variance explained
+var_table()
+
+# pattern matrix
+pattern_matrix()
+
+# Component correlations matrix
+if (n_comp > 1) {
+  pca_cor()
+}
+
+```
+
+\newpage
+# Opinion
+
+## Correlations between variables
+```{R echo = FALSE, message = FALSE}
+# select variables
+x <- d %>% select(opinion_1, opinion_2, opinion_3, opinion_4, opinion_5, opinion_6, 
+                  opinion_7, opinion_8, opinion_9, opinion_10)
+
+# print correlations
+corstarsl(x) %>%
+  kable(booktabs = T, caption = "Correlations between variables") %>%
+  kable_styling(font_size = 6, latex_options = "HOLD_position")
+
+```
+
+## Reliability
+```{R echo = FALSE, message = FALSE}
+# reliability
+data.frame(a = psych::alpha(x)$total$raw_alpha %>% round(2)) %>%
+  kable(booktabs = T, caption = "Cronbach's Alpha") %>%
+  kable_styling(font_size = 6, latex_options = "HOLD_position")
+
+```
+
+
+## KMO and Bartlett's test of spherecity
+```{R echo = FALSE, message = FALSE}
+# Kaiser-Meyer-Olkin Measure of Sampling Adequacy (KMO)
+kmo <- data.frame(KMO = round(KMO(cor(x, use="complete.obs"))$MSA,2))
+
+kmo %>% 
+  kable(booktabs = T, caption = "KMO: Measure of sampling adequacy") %>%
+  kable_styling(font_size = 6, latex_options = "HOLD_position")
+
+
+# Bartlett's test of spherecity
+data.frame(cortest.bartlett(cor(x, use="complete.obs"), n = 1295)) %>% 
+  kable(booktabs = T, caption = "Bartletts test of spherecity") %>%
+  kable_styling(font_size = 6, latex_options = "HOLD_position")
+
+```
+
+
+## Scree plot
+```{R echo = FALSE, message = FALSE}
+# scree plot
+scree(x)
+
+```
+
+The scree plot suggests a 3 component solution. This is consistent with the components extracted by SK from the full dataset.
+
+## PCA: 3 component
+```{R echo = FALSE, message = FALSE}
+# 3-component PCA
+n_comp <- 3
+rotate_method <- "promax"
+score_method <- "Bartlett"
+
+fit <- principal(x, rotate = rotate_method, nfactors = n_comp,
+                 method = score_method, scores = TRUE, n.obs = 1295)
+
+# variance explained
+var_table()
+
+# pattern matrix
+pattern_matrix()
+
+# Component correlations matrix
+if (n_comp > 1) {
+  pca_cor()
+}
+
+```
+
+\newpage
+# Org statements
+
+## Correlations between variables
+```{R echo = FALSE, message = FALSE}
+# select variables
+x <- d %>% select(WFH_OrgStatements_1, WFH_OrgStatements_2, WFH_OrgStatements_3,  
+                  WFH_OrgStatements_4)
+
+# print correlations
+corstarsl(x) %>%
+  kable(booktabs = T, caption = "Correlations between variables") %>%
+  kable_styling(font_size = 6, latex_options = "HOLD_position")
+
+```
+
+## Reliability
+```{R echo = FALSE, message = FALSE}
+# reliability
+data.frame(a = psych::alpha(x)$total$raw_alpha %>% round(2)) %>%
+  kable(booktabs = T, caption = "Cronbach's Alpha") %>%
+  kable_styling(font_size = 6, latex_options = "HOLD_position")
+
+```
+
+
+## KMO and Bartlett's test of spherecity
+```{R echo = FALSE, message = FALSE}
+# Kaiser-Meyer-Olkin Measure of Sampling Adequacy (KMO)
+kmo <- data.frame(KMO = round(KMO(cor(x, use="complete.obs"))$MSA,2))
+
+kmo %>% 
+  kable(booktabs = T, caption = "KMO: Measure of sampling adequacy") %>%
+  kable_styling(font_size = 6, latex_options = "HOLD_position")
+
+
+# Bartlett's test of spherecity
+data.frame(cortest.bartlett(cor(x, use="complete.obs"), n = 400)) %>% 
+  kable(booktabs = T, caption = "Bartletts test of spherecity") %>%
+  kable_styling(font_size = 6, latex_options = "HOLD_position")
+
+```
+
+
+## Scree plot
+```{R echo = FALSE, message = FALSE}
+# scree plot
+scree(x)
+
+```
+
+The scree plot suggests a 1 or 2 component solution. SK extracted 1 component using the full dataset so I will do the same.
+
+## PCA: 1 component
+```{R echo = FALSE, message = FALSE}
+# 2-component PCA
+n_comp <- 1
+rotate_method <- "promax"
+score_method <- "Bartlett"
+
+fit <- principal(x, rotate = rotate_method, nfactors = n_comp,
+                 method = score_method, scores = TRUE, n.obs = 400)
+
+# variance explained
+var_table()
+
+# pattern matrix
+pattern_matrix()
+
+# Component correlations matrix
+if (n_comp > 1) {
+  pca_cor()
+}
+
+```
+
+\newpage
+# Reasons to leave
+
+## Correlations between variables
+```{R echo = FALSE, message = FALSE}
+# select variables
+x <- d %>% select(ReasonsLeaveHome_1, ReasonsLeaveHome_2, ReasonsLeaveHome_3, ReasonsLeaveHome_4,
+                  ReasonsLeaveHome_5, ReasonsLeaveHome_6, ReasonsLeaveHome_7, ReasonsLeaveHome_8, 
+                  ReasonsLeaveHome_9, ReasonsLeaveHome_10, ReasonsLeaveHome_11)
+
+# print correlations
+corstarsl(x) %>%
+  kable(booktabs = T, caption = "Correlations between variables") %>%
+  kable_styling(font_size = 6, latex_options = "HOLD_position")
+
+```
+
+## Reliability
+```{R echo = FALSE, message = FALSE}
+# reliability
+data.frame(a = psych::alpha(x)$total$raw_alpha %>% round(2)) %>%
+  kable(booktabs = T, caption = "Cronbach's Alpha") %>%
+  kable_styling(font_size = 6, latex_options = "HOLD_position")
+
+```
+
+
+## KMO and Bartlett's test of spherecity
+```{R echo = FALSE, message = FALSE}
+# Kaiser-Meyer-Olkin Measure of Sampling Adequacy (KMO)
+kmo <- data.frame(KMO = round(KMO(cor(x, use="complete.obs"))$MSA,2))
+
+kmo %>% 
+  kable(booktabs = T, caption = "KMO: Measure of sampling adequacy") %>%
+  kable_styling(font_size = 6, latex_options = "HOLD_position")
+
+
+# Bartlett's test of spherecity
+data.frame(cortest.bartlett(cor(x, use="complete.obs"), n = 805)) %>% 
+  kable(booktabs = T, caption = "Bartletts test of spherecity") %>%
+  kable_styling(font_size = 6, latex_options = "HOLD_position")
+
+```
+
+
+## Scree plot
+```{R echo = FALSE, message = FALSE}
+# scree plot
+scree(x)
+
+```
+
+The scree plot suggests a 3 or 4 component solution. SK extracted 3 componentsusing the full dataset so I will do the same.
+
+## PCA: 3 component
+```{R echo = FALSE, message = FALSE}
+# 4-component PCA
+n_comp <- 3
+rotate_method <- "promax"
+score_method <- "Bartlett"
+
+fit <- principal(x, rotate = rotate_method, nfactors = n_comp,
+                 method = score_method, scores = TRUE, n.obs = 805)
+
+# variance explained
+var_table()
+
+# pattern matrix
+pattern_matrix()
+
+# Component correlations matrix
+if (n_comp > 1) {
+  pca_cor()
+}
+
+```
+
+\newpage
+# Social behaviour
+
+## Correlations between variables
+```{R echo = FALSE, message = FALSE}
+# select variables
+x <- d %>% select(BehaviourProsocial_1, BehaviourProsocial_2, BehaviourProsocial_3, 
+                  BehaviourProsocial_4, BehaviourAntisocial_1, BehaviourAntisocial_2, 
+                  BehaviourAntisocial_3, BehaviourAntisocial_4)
+
+# print correlations
+corstarsl(x) %>%
+  kable(booktabs = T, caption = "Correlations between variables") %>%
+  kable_styling(font_size = 6, latex_options = "HOLD_position")
+
+```
+
+## Reliability
+```{R echo = FALSE, message = FALSE}
+# reliability
+data.frame(a = psych::alpha(x)$total$raw_alpha %>% round(2)) %>%
+  kable(booktabs = T, caption = "Cronbach's Alpha") %>%
+  kable_styling(font_size = 6, latex_options = "HOLD_position")
+
+```
+
+
+## KMO and Bartlett's test of spherecity
+```{R echo = FALSE, message = FALSE}
+# Kaiser-Meyer-Olkin Measure of Sampling Adequacy (KMO)
+kmo <- data.frame(KMO = round(KMO(cor(x, use="complete.obs"))$MSA,2))
+
+kmo %>% 
+  kable(booktabs = T, caption = "KMO: Measure of sampling adequacy") %>%
+  kable_styling(font_size = 6, latex_options = "HOLD_position")
+
+
+# Bartlett's test of spherecity
+data.frame(cortest.bartlett(cor(x, use="complete.obs"), n = 1339)) %>% 
+  kable(booktabs = T, caption = "Bartletts test of spherecity") %>%
+  kable_styling(font_size = 6, latex_options = "HOLD_position")
+
+```
+
+
+## Scree plot
+```{R echo = FALSE, message = FALSE}
+# scree plot
+scree(x)
+
+```
+
+The scree plot suggests a 3 component solution. This is not consistent with the 2 components extracted by SK from the full dataset. I will extract 2 components only.
+
+## PCA: 2 component
+```{R echo = FALSE, message = FALSE}
+# 2-component PCA
+n_comp <- 2
+rotate_method <- "promax"
+score_method <- "Bartlett"
+
+fit <- principal(x, rotate = rotate_method, nfactors = n_comp,
+                 method = score_method, scores = TRUE, n.obs = 1339)
+
+# variance explained
+var_table()
+
+# pattern matrix
+pattern_matrix()
+
+# Component correlations matrix
+if (n_comp > 1) {
+  pca_cor()
+}
+
+```
+
+\newpage
+# Covid worry
+
+## Correlations between variables
+```{R echo = FALSE, message = FALSE}
+# select variables
+x <- d %>% select(CovidWorry_1, CovidWorry_2R, CovidWorry_3, CovidWorry_4, CovidWorry_5)
+
+# print correlations
+corstarsl(x) %>%
+  kable(booktabs = T, caption = "Correlations between variables") %>%
+  kable_styling(font_size = 6, latex_options = "HOLD_position")
+
+```
+
+## Reliability
+```{R echo = FALSE, message = FALSE}
+# reliability
+data.frame(a = psych::alpha(x)$total$raw_alpha %>% round(2)) %>%
+  kable(booktabs = T, caption = "Cronbach's Alpha") %>%
+  kable_styling(font_size = 6, latex_options = "HOLD_position")
+
+```
+
+
+## KMO and Bartlett's test of spherecity
+```{R echo = FALSE, message = FALSE}
+# Kaiser-Meyer-Olkin Measure of Sampling Adequacy (KMO)
+kmo <- data.frame(KMO = round(KMO(cor(x, use="complete.obs"))$MSA,2))
+
+kmo %>% 
+  kable(booktabs = T, caption = "KMO: Measure of sampling adequacy") %>%
+  kable_styling(font_size = 6, latex_options = "HOLD_position")
+
+
+# Bartlett's test of spherecity
+data.frame(cortest.bartlett(cor(x, use="complete.obs"), n = 1326)) %>% 
+  kable(booktabs = T, caption = "Bartletts test of spherecity") %>%
+  kable_styling(font_size = 6, latex_options = "HOLD_position")
+
+```
+
+
+## Scree plot
+```{R echo = FALSE, message = FALSE}
+# scree plot
+scree(x)
+
+```
+
+The scree plot suggests a 1 component solution. This is consistent with the components extracted by SK from the full dataset.
+
+## PCA: 3 component
+```{R echo = FALSE, message = FALSE}
+# 1-component PCA
+n_comp <- 1
+rotate_method <- "promax"
+score_method <- "Bartlett"
+
+fit <- principal(x, rotate = rotate_method, nfactors = n_comp,
+                 method = score_method, scores = TRUE, n.obs = 1326)
+
+# variance explained
+var_table()
+
+# pattern matrix
+pattern_matrix()
+
+# Component correlations matrix
+if (n_comp > 1) {
+  pca_cor()
+}
+
+```
