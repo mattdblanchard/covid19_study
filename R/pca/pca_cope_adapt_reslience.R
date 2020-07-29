@@ -1,5 +1,25 @@
-source("R/corr_matrix_sig.R")
+# # SETUP -------------------------------------------------------------------
+# # load packages
+# packages <- c("tidyverse", "psych", "knitr", "kableExtra", "GGally", "naniar", "tidyLPA")
+# purrr::map(packages, library, character.only = TRUE)
+# 
+# # Source Functions
+# source("R/pca_functions.R")
+# 
+# # load data
+# # full or reduced data set?
+# data <- "full"
+# 
+# if (data == "reduced") {
+#   d <- read_csv(here("data/200727_covid_reduced_imputed_std_data.csv"), guess_max = 1361)
+#   
+# } else if (data == "full") {
+#   d <- read_csv(here("data/200728_covid_full_imputed_std_data.csv"), guess_max = 1608)
+#   
+# }
 
+
+# CONDUCT PCA -------------------------------------------------------------
 # select variables
 x <- d %>% select(cope_distraction, cope_active, cope_denial, cope_substance, 
                   cope_emotsupp, cope_instrsupp, cope_disengage, cope_venting, 
@@ -11,10 +31,7 @@ x <- d %>% select(cope_distraction, cope_active, cope_denial, cope_substance,
                   RWA, PoliticalOrient)
 
 # print correlations
-star_matrix(x)
-
-# Visualise correlations to see if variables appear to cluster
-# corrplot(cor(x, use="complete.obs"), order = "hclust", tl.col='black', tl.cex=.75)
+corstarsl(x)
 
 # reliability
 # psych::alpha(x)$total$raw_alpha %>% round(2)
@@ -35,7 +52,7 @@ rotate_method <- "promax"
 score_method <- "Bartlett"
 
 fit <- principal(x, rotate = rotate_method, nfactors = n_comp,
-                 method = score_method, scores = TRUE, n.obs = 1265)
+                 method = score_method, scores = TRUE)
 
 # variance explained
 var_table()
@@ -43,17 +60,20 @@ var_table()
 # pattern matrix
 pattern_matrix()
 
-# Component correlations matrix
-print(round(fit$r.scores,2))
-
-
 # save component scores as dataframe
-pca_scores <- data.frame(fit$scores) %>%
-  rename(resilience_adapt = RC1, adaptivecoping = RC2, maladaptivecoping_reactance = RC3,
-         concervatism_trust = RC4, extrv_agrebl = RC5, positive_Acceptance = RC6)
+if (data == "reduced") {
+  pca_scores <- data.frame(fit$scores) %>%
+    rename(resilience_adapt = RC1, adaptivecoping = RC2, maladaptivecoping_reactance = RC4,
+           concervatism_trust = RC3, extrv_agrebl = RC5, positive_Acceptance = RC6)
+
+} else if (data == "full") {
+  pca_scores <- data.frame(fit$scores) %>%
+    rename(resilience_adapt = RC1, maladaptivecoping_reactance = RC4, adaptivecoping = RC2,
+           concervatism_trust = RC3, extrv_agrebl = RC5, positive_Acceptance = RC6)
+}
+
+# Component correlations matrix
+corstarsl(pca_scores)
 
 # add component scores to d
 d <- d %>% bind_cols(pca_scores)
-
-# clean environment
-rm(list = setdiff(ls(), c("d")))

@@ -1,3 +1,25 @@
+# # SETUP -------------------------------------------------------------------
+# # load packages
+# packages <- c("tidyverse", "psych", "knitr", "kableExtra", "GGally", "naniar", "tidyLPA")
+# purrr::map(packages, library, character.only = TRUE)
+# 
+# # Source Functions
+# source("R/pca_functions.R")
+# 
+# # load data
+# # full or reduced data set?
+# data <- "full"
+# 
+# if (data == "reduced") {
+#   d <- read_csv(here("data/200727_covid_reduced_imputed_std_data.csv"), guess_max = 1361)
+#   
+# } else if (data == "full") {
+#   d <- read_csv(here("data/200728_covid_full_imputed_std_data.csv"), guess_max = 1608)
+#   
+# }
+
+
+# CONDUCT PCA -------------------------------------------------------------
 # select variables
 x <- d %>% select(ReasonsLeaveHome_1, ReasonsLeaveHome_2, ReasonsLeaveHome_3, ReasonsLeaveHome_4,
                   ReasonsLeaveHome_5, ReasonsLeaveHome_6, ReasonsLeaveHome_7, ReasonsLeaveHome_8, 

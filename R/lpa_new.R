@@ -9,29 +9,31 @@ library(naniar) # visualise missing data
 library(tidyLPA) # implement LPA
 
 # load data
-d <- read_csv("data/200721_covid_lpa_data.csv")
+# read_csv() uses the first 1000 columns to determine the column type (e.g., numeric, character)
+# if the first 1000 rows contain NA then it will guess the column is a logical vector.
+# As some variables have NA in the first 1000 rows this creates incorrect column types and 
+# alters the data for these columns. Add guess_max = 1361 to resolve this
+d <- read_csv("data/200724_covid_reduced_imputed_data.csv", guess_max = 1361)
 
 # select variables for LPA
 x <- d %>%  
-  select(resilience_adapt, adaptivecoping, maladaptivecoping_reactance,
-         concervatism_trust, extrv_agrebl, positive_Acceptance, g_md, Age,
-         Gender, Education, PoliticalOrient, Physicalhealth, HealthConditions,
-         AnnualIncome_usd, FinancialSit, scrict_isolation, social_distancing,
+  select(Age, Gender, Education, Physicalhealth, HealthConditions, AnnualIncome_usd, 
+         FinancialSit, g_md, resilience_adapt, adaptivecoping, maladaptivecoping_reactance,
+         concervatism_trust, extrv_agrebl, positive_Acceptance, scrict_isolation, social_distancing,
          herd_immunity_economy, complaince_selfreport, social_distance_isolation,
          sickness_actions, Hygiene, antisocial_behaviours, prosocial_behaviours,
-         CovidWorry, CheckNews, official_sources, casual_sources, SourceCheck,
-         NewsShare)
+         CovidWorry, CheckNews, official_sources, casual_sources, 
+         SourceCheck, NewsShare,
+         -CheckNews, -SourceCheck, -NewsShare, -FinancialSit, -g_md,
+         -Gender, -Education, -AnnualIncome_usd)
 
-# examine distributions
-ggpairs(x)
+# examine variable distributions
+# ggpairs(x)
 
 
 # missing value analysis --------------------------------------------------
 # % missing values for each variable
 gg_miss_var(x, show_pct = TRUE)
-
-# remove g_md (intelligence factor): 64% participants missing data
-x <- x %>% select(-g_md)
 
 # % missing values for each participant
 gg_miss_case(x, show_pct = TRUE)
@@ -48,21 +50,22 @@ gg_miss_case(x, show_pct = TRUE)
 # two additional models can be run if MPlus is installed on your computer
 # model 4: variances = "varying",  covarainces = "equal"
 # model 5: variances = "equal",  covarainces = "varying"
-x %>%
+fit <- x %>%
   scale() %>% 
-  estimate_profiles(1:6, 
+  estimate_profiles(2:6, 
                     variances = c("equal", "varying", "equal", "varying"),
                     covariances = c("zero", "zero", "equal", "varying")) %>%
-  compare_solutions(statistics = c("AIC", "BIC"))
+  compare_solutions(statistics = c("LogLik", "AIC", "BIC", "Entropy"))
 
 
-# implement LPA for 3 and 4 profiles using models 1 and 3 (appear to be best fit for data), separately
-# this will run 4 different models
+
+# implement LPA for 3, 4, 5 and 6 profiles using models 1 and 3 (appear to be best fit for data), separately
+# this will run 6 different models
 # first, set seed value so results are reproducible
 seed <- 23
 
 models <- map(c("zero", "equal"), function(cv) { # set covariance (cv)
-  map(3:4, function(i) { # set number of profiles to extract (i)
+  map(2:4, function(i) { # set number of profiles to extract (i)
     # set seed for reproducible results
     set.seed(seed) 
     
@@ -85,13 +88,13 @@ models <- map(c("zero", "equal"), function(cv) { # set covariance (cv)
     
     # save plot
     if (cv == "zero") {
-      ggsave(paste0("output/test/model_1_profile_", i, "_all_seed", seed, ".png"), width = 13.5, height = 6.18)
+      ggsave(paste0("output/best/model_1_profile_", i, "_seed_", seed, ".png"), width = 13.5, height = 6.18)
     } else if (cv == "equal") {
-      ggsave(paste0("output/test/model_3_profile_", i, "_all_seed", seed, ".png"), width = 13.5, height = 6.18)
+      ggsave(paste0("output/best/model_3_profile_", i, "_seed_", seed, ".png"), width = 13.5, height = 6.18)
     }
     
     # goodness of fit indices
-    # get_fit(fit)
+    get_fit(fit)
     
     # save profile scores
     get_data(fit)
@@ -99,16 +102,17 @@ models <- map(c("zero", "equal"), function(cv) { # set covariance (cv)
   })
 })
 
+
 # collapse list structure into df and select only model details and profile scores
 # Class == the profile each participant was allocated
-models <- bind_rows(models) %>% 
+models_bind <- bind_rows(models) %>% 
   select(model_number, classes_number, CPROB1, CPROB2, CPROB3, CPROB4, Class)
 
 # print the number of participants in each profile for each model
 map(c(1,3), function(m) {
-  map(c(3,4), function(p) {
+  map(c(2:4), function(p) {
     
-    x <- bind_cols(d, models %>% filter(model_number == m & classes_number == p))
+    x <- bind_cols(d, models_bind %>% filter(model_number == m & classes_number == p))
     
     # model details
     print(paste0("Model = ", m, ", Profiles = ", p))
@@ -119,9 +123,9 @@ map(c(1,3), function(m) {
 
 # print the proportion of participants in each profile from each country for each model
 map(c(1,3), function(m) {
-  map(c(3,4), function(p) {
+  map(c(3:6), function(p) {
     
-    x <- bind_cols(d, models %>% filter(model_number == m & classes_number == p))
+    x <- bind_cols(d, models_bind %>% filter(model_number == m & classes_number == p))
     
     # model details
     print(paste0("Model = ", m, ", Profiles = ", p))

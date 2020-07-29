@@ -1,11 +1,30 @@
+# # SETUP -------------------------------------------------------------------
+# # load packages
+# packages <- c("tidyverse", "psych", "knitr", "kableExtra", "GGally", "naniar", "tidyLPA")
+# purrr::map(packages, library, character.only = TRUE)
+# 
+# # Source Functions
+# source("R/pca_functions.R")
+# 
+# # load data
+# # full or reduced data set?
+# data <- "full"
+# 
+# if (data == "reduced") {
+#   d <- read_csv(here("data/200727_covid_reduced_imputed_std_data.csv"), guess_max = 1361)
+#   
+# } else if (data == "full") {
+#   d <- read_csv(here("data/200728_covid_full_imputed_std_data.csv"), guess_max = 1608)
+#   
+# }
+
+
+# CONDUCT PCA -------------------------------------------------------------
 # select variables
 x <- d %>% select(follow_self, follow_family, follow_atrisk, follow_people)
 
 # print correlations
-star_matrix(x)
-
-# Visualise correlations to see if variables appear to cluster
-# corrplot(cor(x, use="complete.obs"), order = "hclust", tl.col='black', tl.cex=.75)
+corstarsl(x)
 
 # reliability
 psych::alpha(x)$total$raw_alpha %>% round(2)
@@ -26,7 +45,7 @@ rotate_method <- "promax"
 score_method <- "Bartlett"
 
 fit <- principal(x, rotate = rotate_method, nfactors = n_comp,
-                 method = score_method, scores = TRUE, n.obs = 1326)
+                 method = score_method, scores = TRUE)
 
 # variance explained
 var_table()
@@ -40,6 +59,3 @@ pca_scores <- data.frame(fit$scores) %>%
 
 # add component scores to d
 d <- d %>% bind_cols(pca_scores)
-
-# clean environment
-rm(list = setdiff(ls(), c("d")))

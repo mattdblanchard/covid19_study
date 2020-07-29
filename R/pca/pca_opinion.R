@@ -1,12 +1,32 @@
+
+# # SETUP -------------------------------------------------------------------
+# # load packages
+# packages <- c("tidyverse", "psych", "knitr", "kableExtra", "GGally", "naniar", "tidyLPA")
+# purrr::map(packages, library, character.only = TRUE)
+# 
+# # Source Functions
+# source("R/pca_functions.R")
+# 
+# # load data
+# # full or reduced data set?
+# data <- "full"
+# 
+# if (data == "reduced") {
+#   d <- read_csv(here("data/200727_covid_reduced_imputed_std_data.csv"), guess_max = 1361)
+#   
+# } else if (data == "full") {
+#   d <- read_csv(here("data/200728_covid_full_imputed_std_data.csv"), guess_max = 1608)
+#   
+# }
+
+
+# CONDUCT PCA -------------------------------------------------------------
 # select variables
 x <- d %>% select(opinion_1, opinion_2, opinion_3, opinion_4, opinion_5, opinion_6, 
                   opinion_7, opinion_8, opinion_9, opinion_10)
 
 # print correlations
-star_matrix(x)
-
-# Visualise correlations to see if variables appear to cluster
-# corrplot(cor(x, use="complete.obs"), order = "hclust", tl.col='black', tl.cex=.75)
+corstarsl(x)
 
 # reliability
 psych::alpha(x)$total$raw_alpha %>% round(2)
@@ -27,7 +47,7 @@ rotate_method <- "promax"
 score_method <- "Bartlett"
 
 fit <- principal(x, rotate = rotate_method, nfactors = n_comp,
-                 method = score_method, scores = TRUE, n.obs = 1295)
+                 method = score_method, scores = TRUE)
 
 # variance explained
 var_table()
@@ -35,19 +55,12 @@ var_table()
 # pattern matrix
 pattern_matrix()
 
+# save component scores as dataframe
+pca_scores <- data.frame(fit$scores) %>% 
+  rename(scrict_isolation = RC1, social_distancing = RC3, herd_immunity_economy = RC2)
 
 # Component correlations matrix
-rownames(fit$r.scores) <- c("scrict_isolation", "social_distancing", "herd_immunity_economy")
-colnames(fit$r.scores) <- c("scrict_isolation", "social_distancing", "herd_immunity_economy")
-
-round(fit$r.scores,2)
-
-# save component scores as dataframe
-pca_scores <- data.frame(fit$scores) %>%
-  rename(scrict_isolation = RC1, social_distancing = RC2, herd_immunity_economy = RC3)
+corstarsl(pca_scores)
 
 # add component scores to d
 d <- d %>% bind_cols(pca_scores)
-
-# clean environment
-rm(list = setdiff(ls(), c("d")))

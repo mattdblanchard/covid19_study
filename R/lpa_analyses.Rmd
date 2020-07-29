@@ -1,0 +1,494 @@
+---
+title: "LPA Analyses Using Full Sample (N=1608)"
+author: "Matt Blanchard"
+csl: apa-5th-edition.csl
+output: 
+  pdf_document: 
+    keep_tex: yes
+    number_sections: TRUE
+header-includes:
+    - \usepackage{caption}
+    - \captionsetup{labelsep = newline}
+    - \captionsetup{justification = centering, singlelinecheck = false}
+    - \usepackage{pdflscape}
+    - \newcommand{\blandscape}{\begin{landscape}}
+    - \newcommand{\elandscape}{\end{landscape}}
+
+---
+
+```{R echo = FALSE, results = "hide", message = FALSE}
+
+options(scipen = 999, digits = 2)
+
+# load packages
+packages <- c("tidyverse", "knitr", "kableExtra", "GGally", "naniar", "tidyLPA", "here")
+purrr::map(packages, library, character.only = TRUE)
+
+# load data
+data <- "full"
+
+if (data == "reduced") {
+  # read_csv() uses the first 1000 columns to determine the column type (e.g., numeric, character)
+  # if the first 1000 rows contain NA then it will guess the column is a logical vector.
+  # As some variables have NA in the first 1000 rows this creates incorrect column types and 
+  # alters the data for these columns. Add guess_max = 1361 to resolve this
+  d <- read_csv(here("data/200727_covid_reduced_imputed_std_data.csv"), guess_max = 1361)
+  
+  } else if (data == "full") {
+  d <- read_csv(here("data/200728_covid_full_imputed_std_data.csv"), guess_max = 1608)
+
+  }
+
+# select variables for LPA
+x <- d %>%  
+  select(Age, Gender, Education, Physicalhealth, HealthConditions, AnnualIncome_usd, 
+         FinancialSit, g_md, resilience_adapt, adaptivecoping, maladaptivecoping_reactance,
+         concervatism_trust, extrv_agrebl, positive_Acceptance, scrict_isolation, social_distancing,
+         herd_immunity_economy, complaince_selfreport, social_distance_isolation,
+         sickness_actions, Hygiene, antisocial_behaviours, prosocial_behaviours,
+         CovidWorry, CheckNews, official_sources, casual_sources, 
+         SourceCheck, NewsShare,
+         -CheckNews, -SourceCheck, -NewsShare, -FinancialSit, -g_md,
+         -Gender, -Education, -AnnualIncome_usd)
+
+```
+
+# Number of participants from each country
+```{R echo = FALSE, message = FALSE}
+# calculate n and percentage from each country
+n_country <- d %>% 
+  group_by(CountryLive) %>% 
+  summarise(n = n(),
+            percent = 100*round(n/nrow(.),2)) %>% 
+  gather(` `, val, -CountryLive) %>% 
+  group_by(` `) %>% 
+  mutate(total = sum(val)) %>% 
+  spread(CountryLive, val) 
+
+# create table and arrange order of columns
+ord <- unique(d$CountryLive)
+n_country %>% select(` `, ord, total) %>% 
+  kable(booktabs = T, caption = "Number of participants from each country") %>%
+  kable_styling(font_size = 6, latex_options = "HOLD_position")
+
+```
+
+# Goodness of fit indices for 2 to 6 profile models
+```{R echo = FALSE, message = FALSE}
+# LPA ---------------------------------------------------------------------
+# identify the number of latent profiles
+# run all possible models extracting 1 profile through to 6 profiles
+# model 1: variances = "equal",    covarainces = "zero
+# model 2: variances = "varying",  covarainces = "zero"
+# model 3: variances = "equal",    covarainces = "equal"
+# model 6: variances = "varying",  covarainces = "varying"
+
+# two additional models can be run if MPlus is installed on your computer
+# model 4: variances = "varying",  covarainces = "equal"
+# model 5: variances = "equal",  covarainces = "varying"
+fit <- x %>%
+  scale() %>%
+  estimate_profiles(2:6,
+                    variances = c("equal"),
+                    covariances = c("zero")) %>%
+  compare_solutions(statistics = c("LogLik", "AIC", "BIC", "Entropy", "BLRT_val", "BLRT_p"))
+
+# create table of GFI
+tbl <- fit$fits %>%
+  select(Model:AIC, BIC, Entropy, BLRT_val, BLRT_p) %>%
+  kable(booktabs = T, caption = "Goodness of fit indices for 2-6 profile models") %>%
+  kable_styling(font_size = 6, latex_options = "HOLD_position")
+
+row_spec(tbl, 2, bold = TRUE, color = "red")
+
+```
+
+```{R echo = FALSE, message = FALSE, results = FALSE}
+# functions to fit and plot LPA models
+fit_lpa <- function(profiles) { # set number of profiles to extract (i)
+  # set seed for reproducible results
+  set.seed(23) 
+  
+  # fit model
+  x %>% 
+    # scale() %>%
+    estimate_profiles(profiles, 
+                      variances = "equal",
+                      covariances = "zero")
+}
+ 
+
+plot_lpa <- function() {
+get_estimates(fit) %>% 
+  filter(Category == "Means") %>%
+  select(Parameter, Estimate, se, Class) %>% 
+  mutate(Class = factor(Class),
+         Parameter = factor(Parameter, 
+                            levels = c("Age", "Physicalhealth", "HealthConditions", "concervatism_trust", "resilience_adapt", "adaptivecoping", "maladaptivecoping_reactance", "extrv_agrebl", "official_sources", "casual_sources", "positive_Acceptance", "CovidWorry", "scrict_isolation", "social_distancing", "herd_immunity_economy", "complaince_selfreport", "social_distance_isolation", "sickness_actions", "Hygiene", "antisocial_behaviours", "prosocial_behaviours"))) %>% 
+  ggplot(aes(x = Parameter, y = Estimate, group = Class)) +
+  geom_line(aes(linetype = Class, colour = Class)) +
+  geom_errorbar(aes(ymin = Estimate - se, ymax = Estimate + se, colour = Class),
+                width = .1) +
+    labs(x = "Variable",
+         y = "Mean") +          
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+}
+
+
+
+member_overall <- function() {
+  x <- scores %>%   
+    group_by(Class) %>% 
+    summarise(n = n(),
+              percent = 100*round(n/nrow(.),2)) %>% 
+    gather(` `, val, -Class) %>% 
+    group_by(` `) %>% 
+    mutate(total = sum(val)) %>% 
+    spread(Class, val) 
+    
+  x %>% select(` `, sort(names(x)[-1])) %>% 
+    kable(booktabs = T, caption = "Number and percent of participants in each profile") %>%
+    kable_styling(font_size = 6, latex_options = "HOLD_position")
+}
+
+
+member_country <- function() {
+  x <- scores %>% 
+    group_by(CountryLive, Class) %>% 
+    summarise(n = n()) %>% 
+    group_by(CountryLive) %>%
+    mutate(total = sum(n)) %>%
+    spread(Class, n)
+  
+  x %>% select(CountryLive, sort(names(x)[-1])) %>% 
+    kable(booktabs = T, caption = "Number of participants from each country in each profile") %>%
+    kable_styling(font_size = 6, latex_options = "HOLD_position")
+}
+
+member_gender <- function() {
+  x <- scores %>% 
+    group_by(Gender, Class) %>% 
+    summarise(n = n()) %>% 
+    group_by(Gender) %>% 
+    mutate(total = sum(n)) %>%
+    spread(Class, n)
+  
+  x %>% select(Gender, sort(names(x)[-1])) %>% 
+    kable(booktabs = T, caption = "Number of participants from each gender in each profile") %>%
+    kable_styling(font_size = 6, latex_options = "HOLD_position")
+}
+
+
+# make Education numeric for t.tests
+edu_numeric <- function() {
+scores$Education[scores$Education=="none"] <- 1  
+scores$Education[scores$Education=="primary_school"] <- 2 
+scores$Education[scores$Education=="high_school"] <- 3
+scores$Education[scores$Education=="vocational_certificate"] <- 4
+scores$Education[scores$Education=="associate_degree"] <- 5
+scores$Education[scores$Education=="bachelor_degree"] <- 6  
+scores$Education[scores$Education=="masters_degree"] <- 7 
+scores$Education[scores$Education=="doctorate_degree"] <- 8  
+
+scores %>% mutate(Education = as.numeric(Education))
+
+}
+
+# conduct tests on difference between profile groups on demographic variables
+test_demo <- function() {
+  if (length(unique(scores$Class))==2) {
+nested <- scores %>% 
+  select(id, Class, Education, AnnualIncome_usd) %>% 
+    gather(var, val, -Class, -id) %>% 
+    spread(Class, val) %>% 
+  nest(data = -var)
+  
+test <- nested %>% 
+  mutate(fit = map(data, ~ t.test(.x$`1`, 
+                                  .x$`2`, paired = F, var.equal = T)),
+         tidy_fit = map(fit, broom::tidy)) %>% 
+  unnest(tidy_fit) %>% 
+  mutate_if(is.numeric, round, 3) %>% 
+  select(-data, -fit, -method, -alternative) %>% 
+  rename(mean_1 = estimate1, mean_2 = estimate2, t = statistic, df = parameter)
+
+} else if (length(unique(scores$Class))>2) {
+
+nested <- scores %>% 
+  select(id, Class, Education, AnnualIncome_usd) %>% 
+  gather(var, val, -Class, -id) %>% 
+  nest(data = -var)
+
+test <- nested %>% 
+  mutate(fit = map(data, ~ aov(.x$val ~ .x$Class)),
+         tidy_fit = map(fit, broom::tidy)) %>% 
+  unnest(tidy_fit) %>% 
+  mutate_if(is.numeric, round, 3) %>%
+  select(-data, -fit) %>% 
+  rename(`F` = statistic, p = p.value) %>% 
+  mutate(`F` = ifelse(is.na(`F`), "", `F`),
+         p = ifelse(is.na(p), "", p))
+
+}
+  
+  # create table of results
+  test %>% 
+    kable(booktabs = T, caption = "Differences between latent profiles on demographic variables") %>%
+    kable_styling(font_size = 6, latex_options = "HOLD_position")
+
+}
+
+
+plot_demo <- function() {
+  # create plots of variables 
+p <- scores %>% 
+  select(id, Class, Education, AnnualIncome_usd) %>% 
+  gather(var, val, -Class, -id) %>% 
+  group_by(var, Class) %>% 
+  summarise(Mean = mean(val, na.rm=T),
+            ci = 1.96 * sd(val, na.rm = T) / sqrt(n()))
+
+# plots for demographic vars
+demo_plot <- function(group) {
+  p %>% 
+    filter(var == group) %>% 
+    ggplot(aes(x = factor(Class), y = Mean, colour = var)) +
+    geom_line(aes(group = 1)) + 
+    geom_errorbar(aes(ymin = Mean - ci, ymax = Mean + ci),
+                    width = .1) +
+    theme_classic() +
+    theme(legend.position="none",
+          strip.background = element_blank(),
+          plot.title = element_text(hjust = 0.5))
+}
+
+# education
+p_edu <- demo_plot("Education") +
+  scale_y_continuous(limits = c(3.9, 6), breaks = 4:6) +
+  labs(title = "Education", x = "Profile")
+
+# income
+p_usd <- demo_plot("AnnualIncome_usd") +
+  labs(title = "Annual Income USD", x = "Profile") +
+  if (data == "full") {
+    scale_y_continuous(limits = c(40000, 85000), breaks = seq(40000,85000,10000))
+  }  else if (data == "reduced") {
+    scale_y_continuous(limits = c(38000, 65000), breaks = seq(40000,65000,10000))
+  }
+
+ # p_usd <- demo_plot("AnnualIncome_usd") +
+ #   scale_y_continuous(limits = c(38000, 65000), breaks = seq(40000,65000,10000)) +
+ #   labs(title = "Annual Income USD", x = "Profile")
+
+ # combine into grid
+ cowplot::plot_grid(p_edu, p_usd)
+}
+
+```
+
+\newpage
+# 2 profile model
+## Plot
+```{R echo = FALSE, message = FALSE}
+# fit lpa model
+fit <- fit_lpa(2)
+
+# plot profiles
+if (data == "reduced") {
+plot_lpa() + scale_colour_manual(values=c("red", "blue"))
+ 
+} else if (data == "full") {
+  plot_lpa() + scale_colour_manual(values=c("blue", "red"))
+}
+  
+# # goodness of fit indices
+# get_fit(fit) %>% 
+# kable(booktabs = T, caption = "Goodness of fit indices for 2 profile model") %>%
+# kable_styling(font_size = 6, latex_options = "HOLD_position")
+    
+# save profile scores
+scores <- bind_cols(d, get_data(fit) %>% select(model_number, classes_number, contains("CPROB"), Class))
+
+```
+
+## Latent profile membership
+### Overall membership
+```{R echo = FALSE, message = FALSE}
+member_overall()
+
+```
+
+
+### Country membership
+```{R echo = FALSE, message = FALSE}
+member_country()
+
+```
+
+
+### Gender membership
+```{R echo = FALSE, message = FALSE}
+member_gender()
+
+```
+
+### Differences on demographic variables
+```{R echo = FALSE, message = FALSE}
+# t-tests on demographic variables
+# make Education numeric
+scores <- edu_numeric()
+
+# conduct t-tests
+test_demo()
+
+# plot scores
+plot_demo()
+
+```
+
+\newpage
+# 3 profile model
+```{R echo = FALSE, message = FALSE}
+# fit lpa model
+fit <- fit_lpa(3)
+
+
+# plot profiles
+if (data == "reduced") {
+plot_lpa() + scale_colour_manual(values=c("red", "blue", "purple"))
+ 
+} else if (data == "full") {
+  plot_lpa() + scale_colour_manual(values=c("blue", "red", "purple"))
+}
+ 
+# # goodness of fit indices
+# get_fit(fit) %>% 
+# kable(booktabs = T, caption = "Goodness of fit indices for 2 profile model") %>%
+# kable_styling(font_size = 6, latex_options = "HOLD_position")
+    
+# save profile scores
+scores <- bind_cols(d, get_data(fit) %>% select(model_number, classes_number, contains("CPROB"), Class))
+
+```
+
+
+## Latent profile membership
+### Overall membership
+```{R echo = FALSE, message = FALSE}
+member_overall()
+
+```
+
+
+### Country membership
+```{R echo = FALSE, message = FALSE}
+member_country()
+
+```
+
+
+### Gender membership
+```{R echo = FALSE, message = FALSE}
+member_gender()
+
+```
+
+### Differences on demographic variables
+```{R echo = FALSE, message = FALSE}
+# t-tests on demographic variables
+# make Education numeric
+scores <- edu_numeric()
+
+# conduct t-tests
+test_demo()
+
+# plot scores
+plot_demo()
+
+```
+
+\newpage
+# 4 profile model
+```{R echo = FALSE, message = FALSE}
+# fit lpa model
+fit <- fit_lpa(4)
+
+# plot profiles
+if (data == "reduced") {
+  plot_lpa() + scale_colour_manual(values=c("red", "blue", "green","purple"))
+ 
+} else if (data == "full") {
+  plot_lpa() + scale_colour_manual(values=c("green", "blue", "red", "purple"))
+}
+
+
+
+ 
+# # goodness of fit indices
+# get_fit(fit) %>% 
+# kable(booktabs = T, caption = "Goodness of fit indices for 2 profile model") %>%
+# kable_styling(font_size = 6, latex_options = "HOLD_position")
+    
+# save profile scores
+scores <- bind_cols(d, get_data(fit) %>% select(model_number, classes_number, contains("CPROB"), Class))
+
+```
+
+## Latent profile membership
+### Overall membership
+```{R echo = FALSE, message = FALSE}
+member_overall()
+
+```
+
+
+### Country membership
+```{R echo = FALSE, message = FALSE}
+member_country()
+
+```
+
+
+### Gender membership
+```{R echo = FALSE, message = FALSE}
+member_gender()
+
+```
+
+### Differences on demographic variables
+```{R echo = FALSE, message = FALSE}
+# t-tests on demographic variables
+# make Education numeric
+scores <- edu_numeric()
+
+# conduct t-tests
+test_demo()
+
+# plot scores
+plot_demo()
+
+```
+
+\newpage
+# List of goodness of fit indices
+A list and description of the GFI that can be computed for LPA models.
+
+- LogLik: Log-likelihood of the data, given the model.  
+- AIC: Aikake information criterion; based on -2 log-likelihood, and penalized by number of parameters.  
+- BIC: Bayesian information criterion; based on -2 log-likelihood, and penalized by number of parameters adjusted by sample size.  
+- Entropy: A measure of classification uncertainty, reverse-coded so that 1 reflects complete certainty of classification, and 0 complete uncertainty (see Celeux & Soromenho, 1996).  
+- BLRT: bootstrapped likelihood test.  
+- BLRT p-value: p-value for the bootstrapped likelihood ratio test. 
+  
+
+- AWE: Approximate weight of evidence; combines information on model fit and on classification errors (Celeux et al., 1997).  
+- CAIC: Consistent Aikake information criterion; based on -2 log-likelihood, and penalized by number of parameters adjusted by sample size.  
+- CLC: Classification Likelihood Criterion; based on -2 log-likelihood, and penalized by the entropy (Biernacki, 1997).  
+- KIC: Kullback information criterion; based on -2 log-likelihood, and penalized by 3 times the number of parameters -1 (Cavanaugh, 1999).  
+- SABIC: Sample size-adjusted Bayesian information criterion (Sclove, 1987).  
+- ICL: Integrated completed likelihood (Biernacki, Celeux, & Govaert, 2000).  
+- Prob. Min.: Minimum of the diagonal of the average latent class probabilities for most likely class membership, by assigned class. The minimum should be as high as possible, reflecting greater classification certainty (cases are assigned to classes they have a high probability of belonging to; see Jung & Wickrama, 2008).  
+- Prob. Max.: Maximum of the diagonal of the average latent class probabilities for most likely class membership, by assigned class. The maximum should also be as high as possible, reflecting greater classification certainty (cases are assigned to classes they have a high probability of belonging to).
+- N Min.: Proportion of the sample assigned to the smallest class (based on most likely class membership).  
+- N Max.: Proportion of the sample assigned to the largest class (based on most likely class membership).  

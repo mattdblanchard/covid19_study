@@ -1,13 +1,32 @@
+# # SETUP -------------------------------------------------------------------
+# # load packages
+# packages <- c("tidyverse", "psych", "knitr", "kableExtra", "GGally", "naniar", "tidyLPA")
+# purrr::map(packages, library, character.only = TRUE)
+# 
+# # Source Functions
+# source("R/pca_functions.R")
+# 
+# # load data
+# # full or reduced data set?
+# data <- "full"
+# 
+# if (data == "reduced") {
+#   d <- read_csv(here("data/200727_covid_reduced_imputed_std_data.csv"), guess_max = 1361)
+#   
+# } else if (data == "full") {
+#   d <- read_csv(here("data/200728_covid_full_imputed_std_data.csv"), guess_max = 1608)
+#   
+# }
+
+
+# CONDUCT PCA -------------------------------------------------------------
 # select variables
 x <- d %>% select(BehaviourProsocial_1, BehaviourProsocial_2, BehaviourProsocial_3, 
                   BehaviourProsocial_4, BehaviourAntisocial_1, BehaviourAntisocial_2, 
                   BehaviourAntisocial_3, BehaviourAntisocial_4)
 
 # print correlations
-star_matrix(x)
-
-# Visualise correlations to see if variables appear to cluster
-# corrplot(cor(x, use="complete.obs"), order = "hclust", tl.col='black', tl.cex=.75)
+corstarsl(x)
 
 # reliability
 psych::alpha(x)$total$raw_alpha %>% round(2)
@@ -28,7 +47,7 @@ rotate_method <- "promax"
 score_method <- "Bartlett"
 
 fit <- principal(x, rotate = rotate_method, nfactors = n_comp,
-                 method = score_method, scores = TRUE, n.obs = 1339)
+                 method = score_method, scores = TRUE)
 
 # variance explained
 var_table()
@@ -36,19 +55,17 @@ var_table()
 # pattern matrix
 pattern_matrix()
 
+# save component scores as dataframe
+if (data == "full") {
+  pca_scores <- data.frame(fit$scores) %>%
+    rename(antisocial_behaviours = RC1, prosocial_behaviours = RC2)  
+} else if (data == "reduced") {
+  pca_scores <- data.frame(fit$scores) %>%
+    rename(prosocial_behaviours = RC1, antisocial_behaviours = RC2)
+}
 
 # Component correlations matrix
-rownames(fit$r.scores) <- c("prosocial_behaviours", "antisocial_behaviours")
-colnames(fit$r.scores) <- c("prosocial_behaviours", "antisocial_behaviours")
-
-round(fit$r.scores,2)
-
-# save component scores as dataframe
-pca_scores <- data.frame(fit$scores) %>%
-  rename(prosocial_behaviours = RC1, antisocial_behaviours = RC2)
+corstarsl(pca_scores)
 
 # add component scores to d
 d <- d %>% bind_cols(pca_scores)
-
-# clean environment
-rm(list = setdiff(ls(), c("d")))
