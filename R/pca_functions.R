@@ -102,7 +102,7 @@ corstarsl <- function(x){
   Rnew <- Rnew %>% 
     select(-rowname)
   
-  rownames(Rnew) <- renamevarnames(rownames(Rnew))
+  # rownames(Rnew) <- renamevarnames(rownames(Rnew))
   rownames(Rnew) <- c(paste0(1:nrow(Rnew), ". ", rownames(Rnew)))
   colnames(Rnew) <- 1:ncol(Rnew)
   

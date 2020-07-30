@@ -1,5 +1,5 @@
 ---
-title: "LPA Analyses Using Full Sample (N=1608)"
+title: "LPA Analyses Using Reduced Sample (N=1361)"
 author: "Matt Blanchard"
 csl: apa-5th-edition.csl
 output: 
@@ -25,6 +25,8 @@ packages <- c("tidyverse", "knitr", "kableExtra", "GGally", "naniar", "tidyLPA",
 purrr::map(packages, library, character.only = TRUE)
 
 # load data
+# "reduced" == 1361
+# "full" == 1608
 data <- "full"
 
 if (data == "reduced") {
@@ -200,8 +202,8 @@ test_demo <- function() {
   if (length(unique(scores$Class))==2) {
 nested <- scores %>% 
   select(id, Class, Education, AnnualIncome_usd) %>% 
-    gather(var, val, -Class, -id) %>% 
-    spread(Class, val) %>% 
+  gather(var, val, -Class, -id) %>% 
+  spread(Class, val) %>% 
   nest(data = -var)
   
 test <- nested %>% 
@@ -217,6 +219,7 @@ test <- nested %>%
 
 nested <- scores %>% 
   select(id, Class, Education, AnnualIncome_usd) %>% 
+  mutate(Class = factor(Class)) %>% 
   gather(var, val, -Class, -id) %>% 
   nest(data = -var)
 
@@ -400,7 +403,7 @@ member_gender()
 # make Education numeric
 scores <- edu_numeric()
 
-# conduct t-tests
+# conduct tests
 test_demo()
 
 # plot scores
@@ -462,7 +465,7 @@ member_gender()
 # make Education numeric
 scores <- edu_numeric()
 
-# conduct t-tests
+# conduct tests
 test_demo()
 
 # plot scores

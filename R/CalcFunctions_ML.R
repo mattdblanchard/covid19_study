@@ -171,7 +171,7 @@ fitind <- function(cfa) {
     mutate(chisqoverdf = chisq/df) %>% 
     select(chisq, df, chisqoverdf, gfi, tli, cfi, rmsea, aic)
 }
-?case_when
+
 renamevarnames <- function(column) {
   case_when(column == "age"~ "Age", 
                               column == "gender"~ 'Gender', 
