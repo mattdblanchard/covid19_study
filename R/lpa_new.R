@@ -4,44 +4,38 @@
 # setup -----------------------------------------------------------
 # load packages
 library(tidyverse)
-library(GGally) # plot variable distributions
-library(naniar) # visualise missing data
 library(tidyLPA) # implement LPA
+# library(GGally) # plot variable distributions
+# library(naniar) # visualise missing data
 
 # load data
 # read_csv() uses the first 1000 columns to determine the column type (e.g., numeric, character)
 # if the first 1000 rows contain NA then it will guess the column is a logical vector.
 # As some variables have NA in the first 1000 rows this creates incorrect column types and 
 # alters the data for these columns. Add guess_max = 1361 to resolve this
-d <- read_csv("data/200724_covid_reduced_imputed_data.csv", guess_max = 1361)
+d <- read_csv("data/200805_covid_full_imputed_std_data.csv", guess_max = 1575)
 
 # select variables for LPA
 x <- d %>%  
-  select(Age, Gender, Education, Physicalhealth, HealthConditions, AnnualIncome_usd, 
-         FinancialSit, g_md, resilience_adapt, adaptivecoping, maladaptivecoping_reactance,
-         concervatism_trust, extrv_agrebl, positive_Acceptance, scrict_isolation, social_distancing,
+  select(Age, Education, Physicalhealth, HealthConditions, scrict_isolation, social_distancing,
          herd_immunity_economy, complaince_selfreport, social_distance_isolation,
-         sickness_actions, Hygiene, antisocial_behaviours, prosocial_behaviours,
-         CovidWorry, CheckNews, official_sources, casual_sources, 
-         SourceCheck, NewsShare,
-         -CheckNews, -SourceCheck, -NewsShare, -FinancialSit, -g_md,
-         -Gender, -Education, -AnnualIncome_usd)
+         sickness_actions, Hygiene, antisocial_behaviours, prosocial_behaviours,CovidWorry)
 
 # examine variable distributions
 # ggpairs(x)
 
 
-# missing value analysis --------------------------------------------------
-# % missing values for each variable
-gg_miss_var(x, show_pct = TRUE)
-
-# % missing values for each participant
-gg_miss_case(x, show_pct = TRUE)
+# # missing value analysis --------------------------------------------------
+# # % missing values for each variable
+# gg_miss_var(x, show_pct = TRUE)
+# 
+# # % missing values for each participant
+# gg_miss_case(x, show_pct = TRUE)
 
 
 # LPA ---------------------------------------------------------------------
 # identify the number of latent profiles
-# run all possible models extracting 1 profile through to 6 profiles
+# run all possible models - each model treats the variance and covariance differently
 # model 1: variances = "equal",    covarainces = "zero
 # model 2: variances = "varying",  covarainces = "zero"
 # model 3: variances = "equal",    covarainces = "equal"
@@ -58,14 +52,17 @@ fit <- x %>%
   compare_solutions(statistics = c("LogLik", "AIC", "BIC", "Entropy"))
 
 
+fit$fits %>%
+  select(Model:AIC, BIC, Entropy, BLRT_val, BLRT_p) %>%
+  mutate(across(where(is.numeric), round, 3))
 
-# implement LPA for 3, 4, 5 and 6 profiles using models 1 and 3 (appear to be best fit for data), separately
+# implement LPA for 2-4 profile using models 1 and 3 (appear to be best fit for data), separately
 # this will run 6 different models
 # first, set seed value so results are reproducible
 seed <- 23
 
 models <- map(c("zero", "equal"), function(cv) { # set covariance (cv)
-  map(2:4, function(i) { # set number of profiles to extract (i)
+  models <-   map(2:4, function(i) { # set number of profiles to extract (i)
     # set seed for reproducible results
     set.seed(seed) 
     
@@ -74,7 +71,7 @@ models <- map(c("zero", "equal"), function(cv) { # set covariance (cv)
       scale() %>% 
       estimate_profiles(i, 
                         variances = "equal",
-                        covariances = cv)
+                        covariances = "zero")
     
     # plot profiles
     fit %>% 
@@ -87,15 +84,15 @@ models <- map(c("zero", "equal"), function(cv) { # set covariance (cv)
       theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
     
     # save plot
-    if (cv == "zero") {
-      ggsave(paste0("output/best/model_1_profile_", i, "_seed_", seed, ".png"), width = 13.5, height = 6.18)
-    } else if (cv == "equal") {
-      ggsave(paste0("output/best/model_3_profile_", i, "_seed_", seed, ".png"), width = 13.5, height = 6.18)
-    }
+    # if (cv == "zero") {
+      ggsave(paste0("output/model_1_profile_", i, "_seed_", seed, ".png"), width = 13.5, height = 6.18)
+    # } else if (cv == "equal") {
+    #   ggsave(paste0("output/model_3_profile_", i, "_seed_", seed, ".png"), width = 13.5, height = 6.18)
+    # }
     
     # goodness of fit indices
     get_fit(fit)
-    
+
     # save profile scores
     get_data(fit)
     
@@ -110,7 +107,7 @@ models_bind <- bind_rows(models) %>%
 
 # print the number of participants in each profile for each model
 map(c(1,3), function(m) {
-  map(c(2:4), function(p) {
+  map(c(2:6), function(p) {
     
     x <- bind_cols(d, models_bind %>% filter(model_number == m & classes_number == p))
     
@@ -123,7 +120,7 @@ map(c(1,3), function(m) {
 
 # print the proportion of participants in each profile from each country for each model
 map(c(1,3), function(m) {
-  map(c(3:6), function(p) {
+  map(c(2:6), function(p) {
     
     x <- bind_cols(d, models_bind %>% filter(model_number == m & classes_number == p))
     

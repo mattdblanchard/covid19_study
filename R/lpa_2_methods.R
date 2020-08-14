@@ -357,6 +357,32 @@ LRT <- mclustBootstrapLRT(x, modelName = "VVE")
 LRT
 # BLRT also suggests that a 4-profile solution is ideal.
 
+
+# Let's look at entropy
+output <- clustCombi(mc, modelNames = "VII")
+
+# create plot
+# look for elbow (like scree plot)
+entPlot(output$MclustOutput$z, output$combiM, reg = c(2,3))
+
+# legend: in red, the single-change-point piecewise linear regression;
+#         in blue, the two-change-point piecewise linear regression.
+
+# added code to extract entropy values from the plot
+
+combiM <- output$combiM
+Kmax <- ncol(output$MclustOutput$z)
+z0 <- output$MclustOutput$z
+ent <- numeric()
+
+for (K in Kmax:1) {
+  z0 <- t(combiM[[K]] %*% t(z0))
+  ent[K] <- -sum(mclust:::xlog(z0))
+}
+
+data.frame(`Number of clusters` = 1:Kmax, `Entropy` = round(ent, 3))
+
+
 # try another approach to estimate best model
 # EM algorithm is used by mclust for maximum likelihood estimation. Initialisation of EM is performed using 
 # the partitions obtained from agglomerative hierarchical clustering. For details see help(mclustBIC) or 

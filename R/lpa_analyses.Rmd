@@ -1,5 +1,5 @@
 ---
-title: "LPA Analyses Using Reduced Sample (N=1361)"
+title: "LPA Analyses Using Full Sample (N=1575)"
 author: "Matt Blanchard"
 csl: apa-5th-edition.csl
 output: 
@@ -16,47 +16,86 @@ header-includes:
 
 ---
 
+```{r setup, include=FALSE} 
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+```
+
 ```{R echo = FALSE, results = "hide", message = FALSE}
 
 options(scipen = 999, digits = 2)
 
 # load packages
-packages <- c("tidyverse", "knitr", "kableExtra", "GGally", "naniar", "tidyLPA", "here")
+packages <- c("tidyverse", "knitr", "kableExtra", "GGally", "naniar", "tidyLPA", "here", "psych")
 purrr::map(packages, library, character.only = TRUE)
 
 # load data
+# d <- read_csv(here("data/COVID-19_FourCountries_BC_G_Removed_Imputed-Merged_V3.csv"))
+
 # "reduced" == 1361
-# "full" == 1608
+# "full" == 1575
 data <- "full"
 
 if (data == "reduced") {
   # read_csv() uses the first 1000 columns to determine the column type (e.g., numeric, character)
   # if the first 1000 rows contain NA then it will guess the column is a logical vector.
-  # As some variables have NA in the first 1000 rows this creates incorrect column types and 
-  # alters the data for these columns. Add guess_max = 1361 to resolve this
+  # As some variables have NA in the first 1000 rows this creates incorrect column types and
+  # alters the data for these columns. Add guess_max = 1361 to resolve this for the reduced dataset
   d <- read_csv(here("data/200727_covid_reduced_imputed_std_data.csv"), guess_max = 1361)
-  
+
   } else if (data == "full") {
-  d <- read_csv(here("data/200728_covid_full_imputed_std_data.csv"), guess_max = 1608)
+  d <- read_csv(here("data/200805_covid_full_imputed_std_data.csv"), guess_max = 1575) %>% 
+    mutate(CountryLive = factor(CountryLive, levels = c(9, 31, 185, 187), labels = c("Australia", "Canada", "UK", "US")),
+           sample = factor(sample, levels = c(1,2,3), labels = c("prolific", "sona", "public")))
 
   }
 
 # select variables for LPA
+# other variables of interest not currently in model
+# Gender, AnnualIncome_usd, FinancialSit, g_md, adaptivecoping, maladaptivecoping_reactance, extrv_agrebl, positive_Acceptance, CheckNews, official_sources, casual_sources, SourceCheck, NewsShare
+
 x <- d %>%  
-  select(Age, Gender, Education, Physicalhealth, HealthConditions, AnnualIncome_usd, 
-         FinancialSit, g_md, resilience_adapt, adaptivecoping, maladaptivecoping_reactance,
-         concervatism_trust, extrv_agrebl, positive_Acceptance, scrict_isolation, social_distancing,
-         herd_immunity_economy, complaince_selfreport, social_distance_isolation,
-         sickness_actions, Hygiene, antisocial_behaviours, prosocial_behaviours,
-         CovidWorry, CheckNews, official_sources, casual_sources, 
-         SourceCheck, NewsShare,
-         -CheckNews, -SourceCheck, -NewsShare, -FinancialSit, -g_md,
-         -Gender, -Education, -AnnualIncome_usd)
+  mutate(herd_immunity_economy_R = -1 * herd_immunity_economy) %>% # reverse score for plot interpretability
+  select(Age, Education, Physicalhealth, HealthConditions, scrict_isolation, social_distancing,
+         herd_immunity_economy_R, complaince_selfreport, social_distance_isolation,
+         sickness_actions, Hygiene, antisocial_behaviours, prosocial_behaviours,CovidWorry)
+
+# rename and reverse code ReasonsLeaveHome variables (higher score = higher frequency of leaving home)
+ d <- d %>%
+   pivot_longer(ReasonsLeaveHome_1:ReasonsLeaveHome_11, names_to = "var", values_to = "val") %>% 
+   mutate(val = 6 - val) %>% 
+   pivot_wider(names_from = var, values_from = val) %>% 
+   rename(leave_going_to_work = ReasonsLeaveHome_1, leave_walking_pet = ReasonsLeaveHome_2,
+          leave_physical_activity = ReasonsLeaveHome_3, leave_get_food = ReasonsLeaveHome_4, 
+          leave_pharmacy = ReasonsLeaveHome_5, leave_medical_treatment = ReasonsLeaveHome_6,
+          leave_care_dependents = ReasonsLeaveHome_7, leave_meet_friends_family = ReasonsLeaveHome_8, 
+          leave_religion = ReasonsLeaveHome_9, leave_bored = ReasonsLeaveHome_10, 
+          leave_exercise_freedom = ReasonsLeaveHome_11)
+ 
+ # clean 2 unrealistic values for HouseholdNumber (>10)
+ # reverse code vars so higher scores = higher quantity
+ d <- d %>% 
+   mutate(HouseholdNumber = ifelse(HouseholdNumber > 10, NA, HouseholdNumber),
+          LeaveHome = 2 - LeaveHome, # 0 = will not leave home, 1 = will leave home
+          PublicReact = 6 - PublicReact)  # 1 = reaction insufficient, 5 = reaction too extreme
+ 
+ # calculate trait-confidence
+ conf <- d %>% 
+  select(id, EAT_conf, CRT_conf, belief_conf) %>% 
+  gather(var, val, -id) %>% 
+  group_by(id) %>% 
+  mutate(na = sum(is.na(val))) %>% 
+  filter(!na %in% 2:3) %>% 
+  group_by(id) %>% 
+  summarise(trait_conf = mean(val, na.rm = T))
+ 
+d <- d %>% left_join(conf, by = "id")
+ 
+ 
 
 ```
 
 # Number of participants from each country
-```{R echo = FALSE, message = FALSE}
+```{R echo = FALSE, message = FALSE, warnings = FALSE}
 # calculate n and percentage from each country
 n_country <- d %>% 
   group_by(CountryLive) %>% 
@@ -68,15 +107,15 @@ n_country <- d %>%
   spread(CountryLive, val) 
 
 # create table and arrange order of columns
-ord <- unique(d$CountryLive)
-n_country %>% select(` `, ord, total) %>% 
+ord <- levels(d$CountryLive)
+n_country %>% select(` `, all_of(ord), total) %>% 
   kable(booktabs = T, caption = "Number of participants from each country") %>%
   kable_styling(font_size = 6, latex_options = "HOLD_position")
 
 ```
 
 # Goodness of fit indices for 2 to 6 profile models
-```{R echo = FALSE, message = FALSE}
+```{R echo = FALSE, message = FALSE, warnings = FALSE}
 # LPA ---------------------------------------------------------------------
 # identify the number of latent profiles
 # run all possible models extracting 1 profile through to 6 profiles
@@ -88,8 +127,19 @@ n_country %>% select(` `, ord, total) %>%
 # two additional models can be run if MPlus is installed on your computer
 # model 4: variances = "varying",  covarainces = "equal"
 # model 5: variances = "equal",  covarainces = "varying"
+#
+# to fit all models types:
+# variances = c("equal", "varying", "equal", "varying"),
+# covariances = c("zero", "zero", "equal", "varying")
+# fit <- x %>%
+#   # scale() %>%
+#   estimate_profiles(2:4,
+#                     variances = c("equal", "varying", "equal", "varying"),
+#                     covariances = c("zero", "zero", "equal", "varying")) %>%
+#   compare_solutions(statistics = c("LogLik", "AIC", "BIC", "Entropy", "BLRT_val", "BLRT_p"))
+
 fit <- x %>%
-  scale() %>%
+  # scale() %>%
   estimate_profiles(2:6,
                     variances = c("equal"),
                     covariances = c("zero")) %>%
@@ -97,7 +147,8 @@ fit <- x %>%
 
 # create table of GFI
 tbl <- fit$fits %>%
-  select(Model:AIC, BIC, Entropy, BLRT_val, BLRT_p) %>%
+  select(Model:AIC, BIC, Entropy) %>%
+  mutate(across(where(is.numeric), round, 3)) %>% 
   kable(booktabs = T, caption = "Goodness of fit indices for 2-6 profile models") %>%
   kable_styling(font_size = 6, latex_options = "HOLD_position")
 
@@ -109,7 +160,7 @@ row_spec(tbl, 2, bold = TRUE, color = "red")
 # functions to fit and plot LPA models
 fit_lpa <- function(profiles) { # set number of profiles to extract (i)
   # set seed for reproducible results
-  set.seed(23) 
+  # set.seed(23) 
   
   # fit model
   x %>% 
@@ -126,7 +177,7 @@ get_estimates(fit) %>%
   select(Parameter, Estimate, se, Class) %>% 
   mutate(Class = factor(Class),
          Parameter = factor(Parameter, 
-                            levels = c("Age", "Physicalhealth", "HealthConditions", "concervatism_trust", "resilience_adapt", "adaptivecoping", "maladaptivecoping_reactance", "extrv_agrebl", "official_sources", "casual_sources", "positive_Acceptance", "CovidWorry", "scrict_isolation", "social_distancing", "herd_immunity_economy", "complaince_selfreport", "social_distance_isolation", "sickness_actions", "Hygiene", "antisocial_behaviours", "prosocial_behaviours"))) %>% 
+                            levels = c("Age", "Education", "Physicalhealth", "HealthConditions", "CovidWorry", "scrict_isolation", "social_distancing", "herd_immunity_economy_R", "complaince_selfreport", "social_distance_isolation", "sickness_actions", "Hygiene", "antisocial_behaviours", "prosocial_behaviours"))) %>% 
   ggplot(aes(x = Parameter, y = Estimate, group = Class)) +
   geom_line(aes(linetype = Class, colour = Class)) +
   geom_errorbar(aes(ymin = Estimate - se, ymax = Estimate + se, colour = Class),
@@ -181,111 +232,285 @@ member_gender <- function() {
     kable_styling(font_size = 6, latex_options = "HOLD_position")
 }
 
-
-# make Education numeric for t.tests
-edu_numeric <- function() {
-scores$Education[scores$Education=="none"] <- 1  
-scores$Education[scores$Education=="primary_school"] <- 2 
-scores$Education[scores$Education=="high_school"] <- 3
-scores$Education[scores$Education=="vocational_certificate"] <- 4
-scores$Education[scores$Education=="associate_degree"] <- 5
-scores$Education[scores$Education=="bachelor_degree"] <- 6  
-scores$Education[scores$Education=="masters_degree"] <- 7 
-scores$Education[scores$Education=="doctorate_degree"] <- 8  
-
-scores %>% mutate(Education = as.numeric(Education))
-
-}
-
-# conduct tests on difference between profile groups on demographic variables
-test_demo <- function() {
+# conduct tests on difference between profile groups on out of model variables
+# ordinal and continuous variables
+test_cont <- function() {
+  # which variables to test?
+  name <- d %>% 
+    select(CRT_acc,belief_acc,EAT_acc,CRT_conf,belief_conf,EAT_conf,trait_conf,agreeableness,conscientious,extraversion,intellect,neuroticism,resilience_adapt,cope_distraction,cope_active,cope_denial,cope_substance,cope_emotsupp,cope_instrsupp,cope_disengage,cope_venting,cope_reframing,cope_planning,PHQ,DASS_stress,DASS_anxiety,DASS_depression,social_media_n,SourceCheck,CheckNews,official_sources,casual_sources,official_trust,casual_trust,gov_trust,conservatism,reactance,cultural_tightloose,RWA,morality,leave_going_to_work:leave_exercise_freedom,FinancialSit,worksupportedworkinghome,businessokayworkinghome,NumberDeaths,PublicReact,CovidLength,HouseholdNumber) %>% names()
+  
   if (length(unique(scores$Class))==2) {
-nested <- scores %>% 
-  select(id, Class, Education, AnnualIncome_usd) %>% 
-  gather(var, val, -Class, -id) %>% 
-  spread(Class, val) %>% 
-  nest(data = -var)
-  
-test <- nested %>% 
-  mutate(fit = map(data, ~ t.test(.x$`1`, 
-                                  .x$`2`, paired = F, var.equal = T)),
-         tidy_fit = map(fit, broom::tidy)) %>% 
-  unnest(tidy_fit) %>% 
-  mutate_if(is.numeric, round, 3) %>% 
-  select(-data, -fit, -method, -alternative) %>% 
-  rename(mean_1 = estimate1, mean_2 = estimate2, t = statistic, df = parameter)
-
-} else if (length(unique(scores$Class))>2) {
-
-nested <- scores %>% 
-  select(id, Class, Education, AnnualIncome_usd) %>% 
-  mutate(Class = factor(Class)) %>% 
-  gather(var, val, -Class, -id) %>% 
-  nest(data = -var)
-
-test <- nested %>% 
-  mutate(fit = map(data, ~ aov(.x$val ~ .x$Class)),
-         tidy_fit = map(fit, broom::tidy)) %>% 
-  unnest(tidy_fit) %>% 
-  mutate_if(is.numeric, round, 3) %>%
-  select(-data, -fit) %>% 
-  rename(`F` = statistic, p = p.value) %>% 
-  mutate(`F` = ifelse(is.na(`F`), "", `F`),
-         p = ifelse(is.na(p), "", p))
-
-}
-  
-  # create table of results
-  test %>% 
-    kable(booktabs = T, caption = "Differences between latent profiles on demographic variables") %>%
-    kable_styling(font_size = 6, latex_options = "HOLD_position")
-
+    nested <- scores %>% 
+      select(id, Class, all_of(name)) %>% 
+      pivot_longer(all_of(name), names_to = "var", values_to = "val") %>% 
+      pivot_wider(names_from = Class, values_from = val) %>% 
+      mutate(`1` = as.numeric(`1`),
+             `2` = as.numeric(`2`)) %>% 
+      nest(data = -var)
+    
+    test <- nested %>% 
+      mutate(fit = map(data, ~ t.test(.x$`1`, 
+                                      .x$`2`, paired = F, var.equal = T)),
+             tidy_fit = map(fit, broom::tidy)) %>% 
+      unnest(tidy_fit) %>% 
+      select(-data, -fit, -method, -alternative) %>% 
+      rename(mean_1 = estimate1, mean_2 = estimate2, t = statistic, df = parameter)
+    
+  } else if (length(unique(scores$Class))>2) {
+    
+    nested <- scores %>% 
+      select(id, Class, all_of(name)) %>% 
+      mutate(Class = factor(Class)) %>% 
+      pivot_longer(all_of(name), names_to = "var", values_to = "val") %>% 
+      nest(data = -var)
+    
+    test <- nested %>% 
+      mutate(fit = map(data, ~ aov(.x$val ~ .x$Class)),
+             tidy_fit = map(fit, broom::tidy)) %>% 
+      unnest(tidy_fit) %>% 
+      select(-data, -fit) %>% 
+      rename(`F` = statistic)
+    
+  }
 }
 
+print_test <- function(title) {
+  if (all(length(unique(scores$Class))==2, any(names(test) == "t"))) {
+    test %>% 
+      mutate(across(where(is.numeric), round, 3),
+             p.value = ifelse(p.value < .001, "<.001", p.value)) %>% 
+      select(var,mean_1,mean_2,df,t,p.value,conf.low,conf.high) %>% 
+      kable(booktabs = T, caption = title) %>%
+      kable_styling(font_size = 6, latex_options = "HOLD_position") %>% 
+      row_spec(which(test$p.value < .05), bold = TRUE, color = "black")
+    
+  } else if (all(length(unique(scores$Class))>2, any(names(test) == "F"))) {
+    test %>% 
+      mutate(across(where(is.numeric), round, 3),
+             p.value = ifelse(p.value < .001, "<.001", p.value),
+             `F` = round(`F`, 2),
+             `F` = ifelse(is.na(`F`), "", `F`),
+             p.value = ifelse(is.na(p.value), "", p.value)) %>% 
+      group_by(var) %>% 
+      mutate(dfW = df[term == "Residuals"],
+             SSW = sumsq[term == "Residuals"],
+             MSW = meansq[term == "Residuals"]) %>% 
+      rename(dfB = df, SSB = sumsq, MSB = meansq) %>% 
+      filter(term == ".x$Class") %>% 
+      select(var, SSB, SSW, dfB, dfW, `F`, p.value) %>% 
+      kable(booktabs = T, caption = title) %>%
+      kable_styling(font_size = 6, latex_options = "HOLD_position") %>% 
+      row_spec(which(test$p.value[test$term==".x$Class"] < .05), bold = TRUE, color = "black")
+    
+  } else if (any(any(names(test) == "chi_sq"), all(names(test) == c("var", "p.value")))) {
+    test %>% 
+      mutate(across(where(is.numeric), round, 3),
+             p.value = ifelse(p.value < .001, "<.001", p.value),
+             p.value = ifelse(is.na(p.value), "", p.value)) %>% 
+      select(matches(c("var", "df", "chi_sq", "p.value"))) %>% 
+      kable(booktabs = T, caption = title) %>%
+      kable_styling(font_size = 6, latex_options = "HOLD_position") %>% 
+      row_spec(which(test$p.value < .05), bold = TRUE, color = "black")
+  }
+}
 
-plot_demo <- function() {
-  # create plots of variables 
-p <- scores %>% 
-  select(id, Class, Education, AnnualIncome_usd) %>% 
-  gather(var, val, -Class, -id) %>% 
-  group_by(var, Class) %>% 
-  summarise(Mean = mean(val, na.rm=T),
-            ci = 1.96 * sd(val, na.rm = T) / sqrt(n()))
-
-# plots for demographic vars
-demo_plot <- function(group) {
+plot_cont <- function() {
+  # create plots of variables that are sig. 
+  vars <- test %>% filter(p.value < .05)
+  
+  p <- scores %>% 
+    select(id, Class, all_of(vars$var)) %>% 
+    pivot_longer(all_of(vars$var), names_to = "var", values_to = "val") %>% 
+    mutate(var = factor(var, levels = unique(var))) %>% 
+    group_by(Class, var) %>% 
+    summarise(Mean = mean(val, na.rm=T),
+              ci = 1.96 * sd(val, na.rm = T) / sqrt(n()))
+  
+  # plots
   p %>% 
-    filter(var == group) %>% 
     ggplot(aes(x = factor(Class), y = Mean, colour = var)) +
     geom_line(aes(group = 1)) + 
     geom_errorbar(aes(ymin = Mean - ci, ymax = Mean + ci),
-                    width = .1) +
+                  width = .1) +
+    facet_wrap(~var, scales = "free_y", ncol = 4) +
+    labs(x = "Profile", title = "Plots for variables with sig. difference between profiles", subtitle = "Error bars represent 95% confidence intervals") +
     theme_classic() +
     theme(legend.position="none",
           strip.background = element_blank(),
           plot.title = element_text(hjust = 0.5))
 }
 
-# education
-p_edu <- demo_plot("Education") +
-  scale_y_continuous(limits = c(3.9, 6), breaks = 4:6) +
-  labs(title = "Education", x = "Profile")
 
-# income
-p_usd <- demo_plot("AnnualIncome_usd") +
-  labs(title = "Annual Income USD", x = "Profile") +
-  if (data == "full") {
-    scale_y_continuous(limits = c(40000, 85000), breaks = seq(40000,85000,10000))
-  }  else if (data == "reduced") {
-    scale_y_continuous(limits = c(38000, 65000), breaks = seq(40000,65000,10000))
+select_cat <- function() {
+    # select categorical vars
+  name <- scores %>% select(CountryLive,Gender,LeaveHome,OtherReason,Workessential,Job,Wherework,LossofJob,Layoff,MaritalStatus,Children,Elderly,ElderlyLive,-OtherReason) %>% names() %>% sort()
+  
+  scores %>% 
+    select(Class, name) %>% 
+    mutate(Gender = factor(Gender, levels = 1:2, labels = c("Male", "Female")),
+           Workessential = factor(Workessential, levels = 1:3, labels = c("Essential", "Non-essential", "Unsure")),
+           Wherework = factor(Wherework, levels = c("none", "organisation", "organisation+self_employ", "self_employ"), 
+                            labels = c("none", "organisation", "self_employ", "organisation+self_employ")),
+           MaritalStatus = factor(MaritalStatus, levels = 1:4, labels = c("married", "de_facto", "separated", "single")),
+           Children = factor(Children, levels = 1:2, labels = c("have_kids", "no_kids")),
+           LeaveHome = factor(LeaveHome, levels = 0:1, labels = c("wont_leave", "will_leave")))
+}
+
+test_cat <- function(type) {
+  # use Fisher's exact test if any cells contain less than 5 participants
+  # identify which variables to use Fisher's exact test
+  fisher <- map(names(cat), function(i) {
+    x <- table(cat %>% select(Class, i))
+    
+    if (any(x < 5)) {
+      tibble(var = i)
+    }
+  })
+  
+  fisher <- bind_rows(fisher)
+  
+  # prepare data
+  nested <- cat %>% 
+    gather(var, val, -Class) %>% 
+    nest(data = -var)
+  
+  if (type == "chi") {
+    # compute chi square test
+    test <- nested %>% 
+      filter(!var %in% fisher$var) %>% 
+      mutate(data = map(data, ~ filter(., !is.na(val))),
+             fit = map(data, ~chisq.test(.x$Class, .x$val)),
+             tidy_fit = map(fit, broom::tidy)) %>% 
+      unnest(tidy_fit) %>% 
+      select(-data, -fit, -method) %>% 
+      rename(chi_sq = statistic, df = parameter)
+    
+  } else if (type == "fisher") {
+    # compute fisher's exact test
+    # SLOWER: to get exact p-values use this code
+    # nested %>% 
+    #   filter(var %in% tmp$var) %>% 
+    #   mutate(data = map(data, ~ filter(., !is.na(val))),
+    #          fit = map(data, ~fisher.test(.x$Class, .x$val, workspace = 2e+09)),
+    #          tidy_fit = map(fit, broom::tidy)) %>% 
+    #   unnest(tidy_fit) %>% 
+    #   mutate_if(is.numeric, round, 4) %>%
+    #   select(-data, -fit, -method) %>% 
+    #   rename(chi_sq = statistic, p = p.value, df = parameter)
+    
+    # FASTER: to simulate p-values using monte carlo use this code
+    test <- nested %>% 
+      filter(var %in% fisher$var) %>% 
+      mutate(data = map(data, ~ filter(., !is.na(val))),
+             fit = map(data, ~fisher.test(.x$Class, .x$val, simulate.p.value = TRUE)),
+             tidy_fit = map(fit, broom::tidy)) %>% 
+      unnest(tidy_fit) %>% 
+      select(-data, -fit, -method, -alternative)
   }
+  
+}
 
- # p_usd <- demo_plot("AnnualIncome_usd") +
- #   scale_y_continuous(limits = c(38000, 65000), breaks = seq(40000,65000,10000)) +
- #   labs(title = "Annual Income USD", x = "Profile")
+plot_chi <- function() {
+  # Plot sig. vars
+  vars <- test %>% filter(p.value < .05)
+  # i <- "MaritalStatus"
+  p <- map(vars$var, function(i) {
+    p <- cat %>% 
+      select(Class, i) %>%
+      rename(var = i) %>% 
+      drop_na() %>% 
+      group_by(Class, var) %>% 
+      summarise(v = i,
+                n = n()) %>% 
+      group_by(var) %>% 
+      mutate(n_tot = sum(n)) %>% 
+      group_by(Class) %>% 
+      mutate(percent = round(100*n/n_tot,0),
+             percent = paste0(percent, "%"))
+    
+    if (length(levels(cat[[match(i, names(cat))]]))==2) {
+      p <- p %>% 
+        group_by(Class) %>% 
+        mutate(lab_ypos = ifelse(var==levels(var)[1], .5*n + n[var==levels(var)[2]], .5*n))
+      
+    } else if (length(levels(cat[[match(i, names(cat))]]))==3) {
+      p <- p %>% 
+        group_by(Class) %>% 
+        mutate(lab_ypos = ifelse(var==levels(var)[1], .5*n + n[var==levels(var)[2]] + n[var==levels(var)[3]], 
+                                 ifelse(var==levels(var)[2], .5*n + n[var==levels(var)[3]], .5*n)))
+      
+    } else if (length(levels(cat[[match(i, names(cat))]]))==4) {
+      p <- p %>% 
+        group_by(Class) %>% 
+        mutate(lab_ypos = ifelse(var==levels(var)[1], .5*n + n[var==levels(var)[2]] + n[var==levels(var)[3]] + n[var==levels(var)[4]], 
+                                 ifelse(var==levels(var)[2], .5*n + n[var==levels(var)[3]] + n[var==levels(var)[4]],
+                                        ifelse(var==levels(var)[3], .5*n + n[var==levels(var)[4]], .5*n))))
+    }
+    
+  })
+  
+  gg_list <- map(p, function(i) {
+    i %>%
+      ggplot(aes(x = factor(Class), y = n)) +
+      geom_col(aes(fill = var), width = 0.7) +
+      geom_text(aes(y = lab_ypos, label = percent, group = var), color = "black", position=position_jitter(width=.2,height=0)) +
+      labs(x = "Class", y = "Frequency", fill = i$v[1], title = paste0(i$v[1], ": % in each Profile"), subtitle = "Chi-square test") +
+      theme_classic() +
+      theme(strip.background = element_blank(),
+            plot.title = element_text(hjust = 0.5))
+    
+  })
+  
+  cowplot::plot_grid(plotlist = gg_list, ncol = 1,
+                     align = 'v')
+}
 
- # combine into grid
- cowplot::plot_grid(p_edu, p_usd)
+
+plot_fisher <- function() {
+  # Plot sig. vars
+  vars <- test %>% filter(p.value < .05)
+  
+  if (length(vars$var) > 0) {
+  p <- cat %>% 
+    select(Class, vars$var) %>%
+    rename(var = Wherework) %>% 
+    drop_na() %>% 
+    group_by(Class, var) %>% 
+    summarise(v = "Wherework",
+              n = n()) %>% 
+    group_by(var) %>% 
+    mutate(n_tot = sum(n)) %>% 
+    group_by(Class) %>% 
+    mutate(percent = round(100*n/n_tot,0),
+           percent = paste0(percent, "%"))
+  
+  p <- p %>% 
+    mutate(lab_ypos = ifelse(Class==1 & var==levels(var)[1], .5*n + n[var==levels(var)[2]] + n[var==levels(var)[4]],
+                      ifelse(Class==1 & var==levels(var)[2], .5*n + n[var==levels(var)[4]],
+                      ifelse(Class==1 & var==levels(var)[4], .5*n,
+                      ifelse(Class==2 & var==levels(var)[1], .5*n + n[var==levels(var)[2]] + n[var==levels(var)[3]] + n[var==levels(var)[4]],
+                      ifelse(Class==2 & var==levels(var)[2], .5*n + n[var==levels(var)[3]] + n[var==levels(var)[4]],
+                      ifelse(Class==2 & var==levels(var)[3], .5*n + n[var==levels(var)[4]],
+                      ifelse(Class==2 & var==levels(var)[4], .5*n, 
+                      ifelse(Class==3 & var==levels(var)[1], .5*n + n[var==levels(var)[2]] + n[var==levels(var)[3]] + n[var==levels(var)[4]],
+                      ifelse(Class==3 & var==levels(var)[2], .5*n + n[var==levels(var)[3]] + n[var==levels(var)[4]],
+                      ifelse(Class==3 & var==levels(var)[3], .5*n + n[var==levels(var)[4]],
+                      ifelse(Class==3 & var==levels(var)[4], .5*n, 
+                      ifelse(Class==4 & var==levels(var)[1], .5*n + n[var==levels(var)[2]] + n[var==levels(var)[3]] + n[var==levels(var)[4]],
+                      ifelse(Class==4 & var==levels(var)[2], .5*n + n[var==levels(var)[3]] + n[var==levels(var)[4]],
+                      ifelse(Class==4 & var==levels(var)[3], .5*n + n[var==levels(var)[4]],
+                      ifelse(Class==4 & var==levels(var)[4], .5*n, NA))))))))))))))))
+  
+  p %>%
+    ggplot(aes(x = factor(Class), y = n)) +
+    geom_col(aes(fill = var), width = 0.7) +
+    
+    geom_text(aes(y = lab_ypos, label = percent, group = var), color = "black") +
+    labs(x = "Class", y = "Frequency", fill = p$v[1], title = paste0(p$v[1], ": % in each Profile"), subtitle = "Fisher's exact test") +
+    theme_classic() +
+    theme(strip.background = element_blank(),
+          plot.title = element_text(hjust = 0.5))
+  }
 }
 
 ```
@@ -293,18 +518,13 @@ p_usd <- demo_plot("AnnualIncome_usd") +
 \newpage
 # 2 profile model
 ## Plot
-```{R echo = FALSE, message = FALSE}
+```{R echo = FALSE, message = FALSE, warnings = FALSE}
 # fit lpa model
 fit <- fit_lpa(2)
 
 # plot profiles
-if (data == "reduced") {
 plot_lpa() + scale_colour_manual(values=c("red", "blue"))
  
-} else if (data == "full") {
-  plot_lpa() + scale_colour_manual(values=c("blue", "red"))
-}
-  
 # # goodness of fit indices
 # get_fit(fit) %>% 
 # kable(booktabs = T, caption = "Goodness of fit indices for 2 profile model") %>%
@@ -336,36 +556,65 @@ member_gender()
 
 ```
 
-### Differences on demographic variables
-```{R echo = FALSE, message = FALSE}
-# t-tests on demographic variables
-# make Education numeric
-scores <- edu_numeric()
+\newpage
 
+### Differences on out of model variables
+#### Ordinal/Continuous variables
+```{R echo = FALSE, message = FALSE, warnings = FALSE}
+# t-tests on variables outside model
 # conduct t-tests
-test_demo()
+test <- test_cont()
 
-# plot scores
-plot_demo()
+# print results
+print_test("Ordinal/continuous variables: Differences between profiles on each variable outside model")
 
 ```
+
+\newpage
+```{R echo = FALSE, message = FALSE, warnings = FALSE, fig.height = 12, fig.width = 10, fig.align = "center"}
+# plot scores
+plot_cont()
+
+```
+
+\newpage
+#### categorical variables
+Chi-square test was used for categorical variables. if an observerd frequency was less than 5 in a single cell then Fisher's Exact test was used.
+```{R echo = FALSE, message = FALSE, warnings = FALSE, fig.height = 12, fig.width = 10, fig.align = "center"}
+# Chi-square test
+cat <- select_cat()
+
+test <- test_cat(type = "chi")
+
+print_test("Categorical variables (Chi-square): Differences between profiles on each variable outside model")
+
+plot_chi()
+
+```
+
+\newpage
+```{R echo = FALSE, message = FALSE, warnings = FALSE, fig.height = 6, fig.width = 10, fig.align = "center"}
+# Fisher's exact test
+test <- test_cat(type = "fisher")
+
+print_test("Categorical variables (Fisher's exact): Differences between profiles on each variable outside model")
+
+# None of the variables are sig.
+plot_fisher()
+
+```
+
 
 \newpage
 # 3 profile model
-```{R echo = FALSE, message = FALSE}
+```{R echo = FALSE, message = FALSE, warnings = FALSE}
 # fit lpa model
 fit <- fit_lpa(3)
 
-
 # plot profiles
-if (data == "reduced") {
 plot_lpa() + scale_colour_manual(values=c("red", "blue", "purple"))
  
-} else if (data == "full") {
-  plot_lpa() + scale_colour_manual(values=c("blue", "red", "purple"))
-}
- 
-# # goodness of fit indices
+ # # goodness of fit indices
 # get_fit(fit) %>% 
 # kable(booktabs = T, caption = "Goodness of fit indices for 2 profile model") %>%
 # kable_styling(font_size = 6, latex_options = "HOLD_position")
@@ -397,42 +646,68 @@ member_gender()
 
 ```
 
-### Differences on demographic variables
-```{R echo = FALSE, message = FALSE}
-# t-tests on demographic variables
-# make Education numeric
-scores <- edu_numeric()
+\newpage
 
-# conduct tests
-test_demo()
+### Differences on out of model variables
+#### Ordinal/Continuous variables
+```{R echo = FALSE, message = FALSE, warnings = FALSE}
+# t-tests on variables outside model
+# conduct t-tests
+test <- test_cont()
 
-# plot scores
-plot_demo()
+# print results
+print_test("Ordinal/continuous variables: Differences between profiles on each variable outside model")
 
 ```
 
 \newpage
+```{R echo = FALSE, message = FALSE, warnings = FALSE, fig.height = 12, fig.width = 10, fig.align = "center"}
+# plot scores
+plot_cont()
+
+```
+
+\newpage
+#### categorical variables
+```{R echo = FALSE, message = FALSE, warnings = FALSE, fig.height = 12, fig.width = 10, fig.align = "center"}
+# Chi-square test
+cat <- select_cat()
+
+test <- test_cat(type = "chi")
+
+print_test("Categorical variables (Chi-square): Differences between profiles on each variable outside model")
+
+plot_chi()
+
+```
+
+\newpage
+```{R echo = FALSE, message = FALSE, warnings = FALSE, fig.height = 6, fig.width = 10, fig.align = "center"}
+# Fisher's exact test
+test <- test_cat(type = "fisher")
+
+print_test("Categorical variables (Fisher's exact): Differences between profiles on each variable outside model")
+
+plot_fisher()
+
+```
+
+
+\newpage
 # 4 profile model
-```{R echo = FALSE, message = FALSE}
+```{R echo = FALSE, message = FALSE, warnings = FALSE}
 # fit lpa model
 fit <- fit_lpa(4)
 
 # plot profiles
-if (data == "reduced") {
-  plot_lpa() + scale_colour_manual(values=c("red", "blue", "green","purple"))
- 
-} else if (data == "full") {
-  plot_lpa() + scale_colour_manual(values=c("green", "blue", "red", "purple"))
-}
+plot_lpa() + scale_colour_manual(values=c("red", "blue", "green","purple"))
 
 
-
- 
 # # goodness of fit indices
-# get_fit(fit) %>% 
+# get_fit(fit) %>%
 # kable(booktabs = T, caption = "Goodness of fit indices for 2 profile model") %>%
 # kable_styling(font_size = 6, latex_options = "HOLD_position")
-    
+
 # save profile scores
 scores <- bind_cols(d, get_data(fit) %>% select(model_number, classes_number, contains("CPROB"), Class))
 
@@ -459,25 +734,58 @@ member_gender()
 
 ```
 
-### Differences on demographic variables
-```{R echo = FALSE, message = FALSE}
-# t-tests on demographic variables
-# make Education numeric
-scores <- edu_numeric()
+\newpage
 
-# conduct tests
-test_demo()
+### Differences on out of model variables
+#### Ordinal/Continuous variables
+```{R echo = FALSE, message = FALSE, warnings = FALSE}
+# t-tests on variables outside model
+# conduct t-tests
+test <- test_cont()
 
-# plot scores
-plot_demo()
+# print results
+print_test("Ordinal/continuous variables: Differences between profiles on each variable outside model")
 
 ```
 
 \newpage
+```{R echo = FALSE, message = FALSE, warnings = FALSE, fig.height = 12, fig.width = 10, fig.align = "center"}
+# plot scores
+plot_cont()
+
+```
+
+\newpage
+#### categorical variables
+```{R echo = FALSE, message = FALSE, warnings = FALSE, fig.height = 12, fig.width = 10, fig.align = "center"}
+# Chi-square test
+cat <- select_cat()
+
+test <- test_cat(type = "chi")
+
+print_test("Categorical variables (Chi-square): Differences between profiles on each variable outside model")
+
+plot_chi()
+
+```
+
+\newpage
+```{R echo = FALSE, message = FALSE, warnings = FALSE, fig.height = 6, fig.width = 10, fig.align = "center"}
+# Fisher's exact test
+test <- test_cat(type = "fisher")
+
+print_test("Categorical variables (Fisher's exact): Differences between profiles on each variable outside model")
+
+plot_fisher()
+
+```
+
+
+\newpage
 # List of goodness of fit indices
 A list and description of the GFI that can be computed for LPA models.
-
 - LogLik: Log-likelihood of the data, given the model.  
+
 - AIC: Aikake information criterion; based on -2 log-likelihood, and penalized by number of parameters.  
 - BIC: Bayesian information criterion; based on -2 log-likelihood, and penalized by number of parameters adjusted by sample size.  
 - Entropy: A measure of classification uncertainty, reverse-coded so that 1 reflects complete certainty of classification, and 0 complete uncertainty (see Celeux & Soromenho, 1996).  

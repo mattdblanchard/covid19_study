@@ -1,6 +1,6 @@
 # # SETUP -------------------------------------------------------------------
 # # load packages
-# packages <- c("tidyverse", "psych", "knitr", "kableExtra", "GGally", "naniar", "tidyLPA")
+# packages <- c("tidyverse", "psych", "knitr", "kableExtra", "GGally", "naniar", "tidyLPA", "here")
 # purrr::map(packages, library, character.only = TRUE)
 # 
 # # Source Functions
@@ -55,8 +55,7 @@ pattern_matrix()
 
 # save component scores as dataframe
 pca_scores <- data.frame(fit$scores) %>% 
-  rename(official_trust = RC1, casual_trust = RC2) %>% 
-  mutate(id = d$id)
+  rename(official_trust = RC1, casual_trust = RC2)
 
 # add component scores to d
-# scores <- scores %>% bind_cols(pca_scores)
+d <- d %>% bind_cols(pca_scores)

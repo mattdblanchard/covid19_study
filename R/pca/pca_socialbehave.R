@@ -56,9 +56,9 @@ var_table()
 pattern_matrix()
 
 # save component scores as dataframe
-if (data == "full") {
+if (any(data == c("full", "marvin"))) {
   pca_scores <- data.frame(fit$scores) %>%
-    rename(antisocial_behaviours = RC1, prosocial_behaviours = RC2)  
+    rename(prosocial_behaviours = RC2, antisocial_behaviours = RC1)  
 } else if (data == "reduced") {
   pca_scores <- data.frame(fit$scores) %>%
     rename(prosocial_behaviours = RC1, antisocial_behaviours = RC2)

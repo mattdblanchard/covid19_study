@@ -1,22 +1,22 @@
-# SETUP -------------------------------------------------------------------
-# load packages
-packages <- c("tidyverse", "psych", "knitr", "kableExtra", "GGally", "naniar", "tidyLPA")
-purrr::map(packages, library, character.only = TRUE)
-
-# Source Functions
-source("R/pca_functions.R")
-
-# load data
-# full or reduced data set?
-data <- "full"
-
-if (data == "reduced") {
-  d <- read_csv(here("data/200727_covid_reduced_imputed_std_data.csv"), guess_max = 1361)
-  
-} else if (data == "full") {
-  d <- read_csv(here("data/200728_covid_full_imputed_std_data.csv"), guess_max = 1608)
-  
-}
+# # SETUP -------------------------------------------------------------------
+# # load packages
+# packages <- c("tidyverse", "psych", "knitr", "kableExtra", "GGally", "naniar", "tidyLPA")
+# purrr::map(packages, library, character.only = TRUE)
+# 
+# # Source Functions
+# source("R/pca_functions.R")
+# 
+# # load data
+# # full or reduced data set?
+# data <- "full"
+# 
+# if (data == "reduced") {
+#   d <- read_csv(here("data/200727_covid_reduced_imputed_std_data.csv"), guess_max = 1361)
+#   
+# } else if (data == "full") {
+#   d <- read_csv(here("data/200728_covid_full_imputed_std_data.csv"), guess_max = 1608)
+#   
+# }
 
 
 # select variables
@@ -59,7 +59,7 @@ var_table()
 # pattern matrix
 pattern_matrix()
 
-d %>% select(contains("biz"))
+
 
 # save component scores as dataframe
 # pca_scores <- data.frame(fit$scores) %>%

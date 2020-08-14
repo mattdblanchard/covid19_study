@@ -56,13 +56,13 @@ var_table()
 
 # pattern matrix
 pattern_matrix()
-
+fit$loadings
 # save component scores as dataframe
 if (data == "reduced") {
 pca_scores <- data.frame(fit$scores) %>%
   rename(official_sources = RC1, casual_sources = RC2)
 
-} else if (data == "full") {
+} else if (any(data == c("full", "marvin"))) {
   pca_scores <- data.frame(fit$scores) %>%
     rename(casual_sources = RC1, official_sources = RC2)
 }

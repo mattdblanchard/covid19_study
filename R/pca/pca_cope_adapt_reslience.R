@@ -7,7 +7,7 @@
 # source("R/pca_functions.R")
 # 
 # # load data
-# # full or reduced data set?
+# # full, reduced or marvin dataset?
 # data <- "full"
 # 
 # if (data == "reduced") {
@@ -16,6 +16,8 @@
 # } else if (data == "full") {
 #   d <- read_csv(here("data/200728_covid_full_imputed_std_data.csv"), guess_max = 1608)
 #   
+# } else if (data == "marvin") {
+# d <- read_csv(here("data/200728_covid_full_imputed_std_data.csv"), guess_max = 1575)
 # }
 
 
@@ -61,7 +63,7 @@ var_table()
 pattern_matrix()
 
 # save component scores as dataframe
-if (data == "reduced") {
+if (any(data == c("reduced", "marvin"))) {
   pca_scores <- data.frame(fit$scores) %>%
     rename(resilience_adapt = RC1, adaptivecoping = RC2, maladaptivecoping_reactance = RC4,
            concervatism_trust = RC3, extrv_agrebl = RC5, positive_Acceptance = RC6)
