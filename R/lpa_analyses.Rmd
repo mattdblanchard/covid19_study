@@ -147,7 +147,7 @@ fit <- x %>%
 
 # create table of GFI
 tbl <- fit$fits %>%
-  select(Model:AIC, BIC, Entropy) %>%
+  select(Model:AIC, SABIC, BIC, Entropy) %>%
   mutate(across(where(is.numeric), round, 3)) %>% 
   kable(booktabs = T, caption = "Goodness of fit indices for 2-6 profile models") %>%
   kable_styling(font_size = 6, latex_options = "HOLD_position")
