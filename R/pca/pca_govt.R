@@ -18,7 +18,6 @@
 #   
 # }
 
-
 # CONDUCT PCA -------------------------------------------------------------
 # select variables
 x <- d %>% select(Govt_Satisfaction, Govt_Extreme, Govt_Truth)

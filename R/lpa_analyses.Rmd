@@ -54,9 +54,9 @@ if (data == "reduced") {
 # Gender, AnnualIncome_usd, FinancialSit, g_md, adaptivecoping, maladaptivecoping_reactance, extrv_agrebl, positive_Acceptance, CheckNews, official_sources, casual_sources, SourceCheck, NewsShare
 
 x <- d %>%  
-  mutate(herd_immunity_economy_R = -1 * herd_immunity_economy) %>% # reverse score for plot interpretability
+  # mutate(herd_immunity_economy_R = -1 * herd_immunity_economy) %>% # reverse score for plot interpretability
   select(Age, Education, Physicalhealth, HealthConditions, scrict_isolation, social_distancing,
-         herd_immunity_economy_R, complaince_selfreport, social_distance_isolation,
+         herd_immunity_economy, complaince_selfreport, social_distance_isolation,
          sickness_actions, Hygiene, antisocial_behaviours, prosocial_behaviours,CovidWorry)
 
 # rename and reverse code ReasonsLeaveHome variables (higher score = higher frequency of leaving home)
@@ -78,17 +78,19 @@ x <- d %>%
           LeaveHome = 2 - LeaveHome, # 0 = will not leave home, 1 = will leave home
           PublicReact = 6 - PublicReact)  # 1 = reaction insufficient, 5 = reaction too extreme
  
- # calculate trait-confidence
- conf <- d %>% 
-  select(id, EAT_conf, CRT_conf, belief_conf) %>% 
-  gather(var, val, -id) %>% 
+ # calculate trait-accuracy and trait-confidence
+ trait <- d %>% 
+  select(id, EAT_acc, CRT_acc, belief_acc, EAT_conf, CRT_conf, belief_conf) %>% 
+  pivot_longer(names_to = "var", values_to = "val", -id) %>%
   group_by(id) %>% 
   mutate(na = sum(is.na(val))) %>% 
-  filter(!na %in% 2:3) %>% 
-  group_by(id) %>% 
-  summarise(trait_conf = mean(val, na.rm = T))
+  filter(!na %in% 2:6) %>% 
+  mutate(v = paste0("trait_", str_extract(var, "acc|conf"))) %>% 
+  group_by(id, v) %>% 
+  summarise(mean = mean(val, na.rm=T)) %>% 
+  pivot_wider(names_from = v, values_from = mean)
  
-d <- d %>% left_join(conf, by = "id")
+d <- d %>% left_join(trait, by = "id")
  
  
 
@@ -177,7 +179,7 @@ get_estimates(fit) %>%
   select(Parameter, Estimate, se, Class) %>% 
   mutate(Class = factor(Class),
          Parameter = factor(Parameter, 
-                            levels = c("Age", "Education", "Physicalhealth", "HealthConditions", "CovidWorry", "scrict_isolation", "social_distancing", "herd_immunity_economy_R", "complaince_selfreport", "social_distance_isolation", "sickness_actions", "Hygiene", "antisocial_behaviours", "prosocial_behaviours"))) %>% 
+                            levels = c("Age", "Education", "Physicalhealth", "HealthConditions", "CovidWorry", "scrict_isolation", "social_distancing", "herd_immunity_economy", "complaince_selfreport", "social_distance_isolation", "sickness_actions", "Hygiene", "antisocial_behaviours", "prosocial_behaviours"))) %>% 
   ggplot(aes(x = Parameter, y = Estimate, group = Class)) +
   geom_line(aes(linetype = Class, colour = Class)) +
   geom_errorbar(aes(ymin = Estimate - se, ymax = Estimate + se, colour = Class),
@@ -237,7 +239,7 @@ member_gender <- function() {
 test_cont <- function() {
   # which variables to test?
   name <- d %>% 
-    select(CRT_acc,belief_acc,EAT_acc,CRT_conf,belief_conf,EAT_conf,trait_conf,agreeableness,conscientious,extraversion,intellect,neuroticism,resilience_adapt,cope_distraction,cope_active,cope_denial,cope_substance,cope_emotsupp,cope_instrsupp,cope_disengage,cope_venting,cope_reframing,cope_planning,PHQ,DASS_stress,DASS_anxiety,DASS_depression,social_media_n,SourceCheck,CheckNews,official_sources,casual_sources,official_trust,casual_trust,gov_trust,conservatism,reactance,cultural_tightloose,RWA,morality,leave_going_to_work:leave_exercise_freedom,FinancialSit,worksupportedworkinghome,businessokayworkinghome,NumberDeaths,PublicReact,CovidLength,HouseholdNumber) %>% names()
+    select(CRT_acc,belief_acc,EAT_acc,CRT_conf,belief_conf,EAT_conf,trait_acc,trait_conf,agreeableness,conscientious,extraversion,intellect,neuroticism,resilience_adapt,cope_distraction,cope_active,cope_denial,cope_substance,cope_emotsupp,cope_instrsupp,cope_disengage,cope_venting,cope_reframing,cope_planning,PHQ,DASS_stress,DASS_anxiety,DASS_depression,social_media_n,SourceCheck,CheckNews,official_sources,casual_sources,official_trust,casual_trust,gov_trust,conservatism,reactance,cultural_tightloose,RWA,morality,leave_going_to_work:leave_exercise_freedom,FinancialSit,worksupportedworkinghome,businessokayworkinghome,NumberDeaths,PublicReact,CovidLength,HouseholdNumber) %>% names()
   
   if (length(unique(scores$Class))==2) {
     nested <- scores %>% 
@@ -285,22 +287,24 @@ print_test <- function(title) {
       row_spec(which(test$p.value < .05), bold = TRUE, color = "black")
     
   } else if (all(length(unique(scores$Class))>2, any(names(test) == "F"))) {
-    test %>% 
-      mutate(across(where(is.numeric), round, 3),
-             p.value = ifelse(p.value < .001, "<.001", p.value),
-             `F` = round(`F`, 2),
-             `F` = ifelse(is.na(`F`), "", `F`),
-             p.value = ifelse(is.na(p.value), "", p.value)) %>% 
-      group_by(var) %>% 
-      mutate(dfW = df[term == "Residuals"],
-             SSW = sumsq[term == "Residuals"],
-             MSW = meansq[term == "Residuals"]) %>% 
-      rename(dfB = df, SSB = sumsq, MSB = meansq) %>% 
-      filter(term == ".x$Class") %>% 
-      select(var, SSB, SSW, dfB, dfW, `F`, p.value) %>% 
-      kable(booktabs = T, caption = title) %>%
-      kable_styling(font_size = 6, latex_options = "HOLD_position") %>% 
-      row_spec(which(test$p.value[test$term==".x$Class"] < .05), bold = TRUE, color = "black")
+   test %>% 
+  mutate(across(where(is.numeric), round, 3),
+         p.value = ifelse(p.value < .001, "<.001", p.value),
+         `F` = round(`F`, 2),
+         `F` = ifelse(is.na(`F`), "", `F`),
+         p.value = ifelse(is.na(p.value), "", p.value)) %>% 
+  group_by(var) %>% 
+  mutate(dfB = df[term==".x$Class"],
+         dfW = df[term=="Residuals"],
+         SSB = sumsq[term==".x$Class"],
+         SSW = sumsq[term == "Residuals"],
+         MSB = meansq[term == ".x$Class"],
+         MSW = meansq[term == "Residuals"]) %>% 
+  filter(term == ".x$Class") %>% 
+  select(var, SSB, SSW, dfB, dfW, MSB, MSW, `F`, p.value) %>% 
+  kable(booktabs = T, caption = title) %>%
+  kable_styling(font_size = 6, latex_options = "HOLD_position") %>% 
+  row_spec(which(test$p.value[test$term==".x$Class"] < .05), bold = TRUE, color = "black")
     
   } else if (any(any(names(test) == "chi_sq"), all(names(test) == c("var", "p.value")))) {
     test %>% 
@@ -742,6 +746,18 @@ member_gender()
 # t-tests on variables outside model
 # conduct t-tests
 test <- test_cont()
+
+test %>% 
+  group_by(var) %>% 
+  mutate(dfB = df[term==".x$Class"],
+         dfW = df[term=="Residuals"],
+         SSB = sumsq[term==".x$Class"],
+         SSW = sumsq[term == "Residuals"],
+         MSB = meansq[term == ".x$Class"],
+         MSW = meansq[term == "Residuals"]) %>% 
+  filter(term == ".x$Class") %>%
+  select(var, SSB, SSW, MSB, MSW, dfB, dfW, `F`, p.value) %>% 
+  write_csv(here("output/4_profile_anova_results.csv"))
 
 # print results
 print_test("Ordinal/continuous variables: Differences between profiles on each variable outside model")

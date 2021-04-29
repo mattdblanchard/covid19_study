@@ -1,4 +1,4 @@
-# # SETUP -------------------------------------------------------------------
+# SETUP -------------------------------------------------------------------
 # # load packages
 # packages <- c("tidyverse", "psych", "knitr", "kableExtra", "GGally", "naniar", "tidyLPA")
 # purrr::map(packages, library, character.only = TRUE)
@@ -11,18 +11,18 @@
 # data <- "full"
 # 
 # if (data == "reduced") {
-#   d <- read_csv(here("data/200727_covid_reduced_imputed_std_data.csv"), guess_max = 1361)
-#   
+#   d <- read_csv("data/200727_covid_reduced_imputed_std_data.csv", guess_max = 1361)
+# 
 # } else if (data == "full") {
-#   d <- read_csv(here("data/200728_covid_full_imputed_std_data.csv"), guess_max = 1608)
-#   
+#   d <- read_csv("data/200728_covid_full_imputed_std_data.csv", guess_max = 1608)
+# 
 # }
 
 # select variables
 x <- d %>% select(DASS_stress, DASS_anxiety, DASS_depression)
 
 # create the correlation matrix for PCA so we know how it was done (e.g., how missing values were treated)
-cor_pca <- star_matrix(x)
+cor_pca <- corstarsl(x)
 
 # print correlations
 cor_pca

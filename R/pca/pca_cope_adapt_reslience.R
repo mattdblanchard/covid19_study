@@ -1,7 +1,7 @@
 # # SETUP -------------------------------------------------------------------
 # # load packages
 # packages <- c("tidyverse", "psych", "knitr", "kableExtra", "GGally", "naniar", "tidyLPA")
-# purrr::map(packages, library, character.only = TRUE)
+# lapply(packages, library, character.only = TRUE)
 # 
 # # Source Functions
 # source("R/pca_functions.R")
@@ -11,13 +11,13 @@
 # data <- "full"
 # 
 # if (data == "reduced") {
-#   d <- read_csv(here("data/200727_covid_reduced_imputed_std_data.csv"), guess_max = 1361)
-#   
+#   d <- read_csv("data/200727_covid_reduced_imputed_std_data.csv", guess_max = 1361)
+# 
 # } else if (data == "full") {
-#   d <- read_csv(here("data/200728_covid_full_imputed_std_data.csv"), guess_max = 1608)
-#   
+#   d <- read_csv("data/200728_covid_full_imputed_std_data.csv", guess_max = 1608)
+# 
 # } else if (data == "marvin") {
-# d <- read_csv(here("data/200728_covid_full_imputed_std_data.csv"), guess_max = 1575)
+# d <- read_csv("data/200728_covid_full_imputed_std_data.csv", guess_max = 1575)
 # }
 
 
@@ -31,6 +31,7 @@ x <- d %>% select(cope_distraction, cope_active, cope_denial, cope_substance,
                   resilience, adaptability_crisis, adaptability_uncertainty,
                   conservatism, reactance, cultural_tightloose, gov_trust,
                   RWA, PoliticalOrient)
+  
 
 # print correlations
 corstarsl(x)

@@ -23,7 +23,7 @@ var_table <- function() {
   
   a %>% 
     kable(booktabs = T, caption = "Variance accounted for by components") %>%
-    kable_styling(font_size = 6, latex_options = "HOLD_position")
+    kable_styling(font_size = 12, latex_options = "HOLD_position")
 }
 
 # pattern matrix
@@ -52,7 +52,7 @@ pattern_matrix <- function() {
   
   load %>% 
     kable(booktabs = T, caption = "Pattern Matrix") %>%
-    kable_styling(font_size = 6, latex_options = "HOLD_position")
+    kable_styling(font_size = 12, latex_options = "HOLD_position")
 }
 
 
@@ -60,7 +60,7 @@ pattern_matrix <- function() {
 pca_cor <- function() {
 round(fit$r.scores,2) %>% 
   kable(booktabs = T, caption = "Correlations between components") %>%
-  kable_styling(font_size = 6, latex_options = "HOLD_position")
+  kable_styling(font_size = 8, latex_options = "HOLD_position")
 }
 
 
